@@ -1,0 +1,43 @@
+# Scala
+**/target
+*.class
+*.log
+
+# vCode IDEA
+.dotty-ide.json
+.dotty-ide-artifact
+
+# macOS
+.DS_Store
+
+# SBT
+dist/*
+target/
+lib_managed/
+src_managed/
+project/boot/
+project/plugins/project/
+project/local-plugins.sbt
+project/.bloop/
+.history
+.ensime
+.ensime_cache/
+.sbt-scripted/
+local.sbt
+
+# Bloop
+.bsp
+
+# VS Code
+.vscode/
+
+# Metals
+.bloop/
+.metals/
+metals.sbt
+
+# IDEA
+.idea
+.idea_modules
+/.worksheet/
+*.iml
