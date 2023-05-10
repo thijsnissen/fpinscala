@@ -1,5 +1,6 @@
 object Chapter2 extends App:
-	private def factorial(n: Int): Int =
+	def factorial(n: Int): Int =
+		assert(n >= 0, s"factorial argument must be positive, was: $n")
 		@annotation.tailrec
 		def go(n: Int, acc: Int = 1): Int =
 			if n <= 0 then acc
@@ -7,10 +8,8 @@ object Chapter2 extends App:
 
 		go(n)
 
-	assert(factorial(5) == 120)
-
 	// Exercise 2.1
-	private def fibonacci(n: Int): Int =
+	def fibonacci(n: Int): Int =
 		@annotation.tailrec
 		def go(n: Int, current: Int = 0, next: Int = 1): Int =
 			if n <= 0 then current
@@ -18,10 +17,8 @@ object Chapter2 extends App:
 
 		go(n)
 
-	assert(fibonacci(4) == 3)
-
 	// Exercise 2.2
-	private def isSorted[A](as: Array[A], ordered: (A, A) => Boolean): Boolean =
+	def isSorted[A](as: Array[A], ordered: (A, A) => Boolean): Boolean =
 		@annotation.tailrec
 		def go(n: Int): Boolean =
 			if n >= as.length - 1 then true
@@ -29,8 +26,6 @@ object Chapter2 extends App:
 			else go(n + 1)
 
 		go(0)
-
-	assert(isSorted(Array(1, 2, 3, 4), (a, b) => a < b))
 
 	// Exercise 2.3
 	def curry[A, B, C](f: (A, B) => C): A => (B => C) =
@@ -48,8 +43,7 @@ object Chapter2 extends App:
 
 	private val f = (x: Double) => math.Pi / 2 - x
 
-	private val cos = f andThen math.sin
-	private val cos2 = math.sin(f(2))
-	private val cos3 = 2.toDouble.pipe(f).pipe(math.sin)
-
-	assert(cos(2) == cos2 && cos2 == cos3)
+	val cos = f andThen math.sin
+	val cos2 = math.sin(f(2))
+	val cos3 = 2.toDouble.pipe(f).pipe(math.sin)
+	
