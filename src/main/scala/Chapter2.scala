@@ -1,6 +1,6 @@
 object Chapter2 extends App:
 	def factorial(n: Int): Int =
-		assert(n >= 0, s"factorial argument must be positive, was: $n")
+
 		@annotation.tailrec
 		def go(n: Int, acc: Int = 1): Int =
 			if n <= 0 then acc
@@ -46,4 +46,3 @@ object Chapter2 extends App:
 	val cos = f andThen math.sin
 	val cos2 = math.sin(f(2))
 	val cos3 = 2.toDouble.pipe(f).pipe(math.sin)
-	
