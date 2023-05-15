@@ -243,6 +243,56 @@ class Test extends AnyFunSuite:
 		assertResult(List(2, 3, 4))(List(1, 2, 3, 4, 5).map(plusOne).filter(smallerThan))
 		assertResult(List(2, 3, 4))(Stream(1, 2, 3, 4, 5).map(plusOne).filter(smallerThan).toList)
 
+	test("Chapter 6"):
+		import Chapter6._
+
+		val rng = SimpleRNG(42)
+
+		// Exercise 6.1
+		assertResult(true)(nonNegativeInt(rng)._1 > 0)
+
+		// Exercise 6.2
+		assertResult(true)(double(rng).isInstanceOf[(Double, RNG)])
+		assertResult(true)(double(rng)._1 > 0 && double(rng)._1 < 1)
+
+		// Exercise 6.3
+		assertResult(true)(intDouble(rng).isInstanceOf[((Int, Double), RNG)])
+		assertResult(true)(doubleInt(rng).isInstanceOf[((Double, Int), RNG)])
+		assertResult(true)(doubleThree(rng).isInstanceOf[((Double, Double, Double), RNG)])
+
+		// Exercise 6.4
+		assertResult(5)(ints(5)(rng)._1.count(_.isInstanceOf[Int]))
+
+		assertResult(true)(unit("String").isInstanceOf[Rand[String]])
+		assertResult(true)(nonNegativeEven(rng)._1 >= 0 && nonNegativeEven(rng)._1 % 2 == 0)
+
+		assertResult(true)(map(unit("10"))(_.toInt).isInstanceOf[Rand[Int]])
+
+		// Exercise 6.5
+		assertResult(true)(double2(rng).isInstanceOf[(Double, RNG)])
+		assertResult(true)(double2(rng)._1 > 0 && double2(rng)._1 < 1)
+
+		// Exercise 6.6
+		assertResult(true)(map2(unit("10"), unit("5"))((a, b) => a.toInt + b.toInt).isInstanceOf[Rand[Int]])
+
+		assertResult(true)(both(nonNegativeInt, double).isInstanceOf[Rand[(Int, Double)]])
+		assertResult(true)(randIntDouble(unit(1), unit(1.0)).isInstanceOf[Rand[(Int, Double)]])
+		assertResult(true)(randDoubleInt(unit(1.0), unit(1)).isInstanceOf[Rand[(Double, Int)]])
+
+		// Exercise 6.7
+		assertResult(true)(sequence(List(unit(1), unit(2), unit(3))).isInstanceOf[Rand[List[Int]]])
+		assertResult(true)(sequenceViaFoldLeft(List(unit(1), unit(2), unit(3))).isInstanceOf[Rand[List[Int]]])
+		assertResult(5)(ints2(5)(rng)._1.count(_.isInstanceOf[Int]))
+
+		assertResult(true)(nonNegativeLessThan(10)(rng)._1 < 10)
+
+		// Exercise 6.8
+		assertResult(true)(nonNegativeLessThanViaFlatMap(10)(rng)._1 < 10)
+
+		// Exercise 6.9
+		assertResult(true)(mapViaFlatMap(unit("10"))(_.toInt).isInstanceOf[Rand[Int]])
+		assertResult(true)(map2ViaFlatMap(unit("10"), unit("5"))((a, b) => a.toInt + b.toInt).isInstanceOf[Rand[Int]])
+
 	test("TypeClasses"):
 		import TypeClasses._
 		import TypeClasses.Adder._
