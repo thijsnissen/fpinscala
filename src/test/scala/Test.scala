@@ -245,53 +245,71 @@ class Test extends AnyFunSuite:
 
 	test("Chapter 6"):
 		import Chapter6._
+		import Chapter6.Rand._
 
-		val rng = SimpleRNG(42)
+		val rng = SimpleRNG(42) // used only to invoke test state
 
 		// Exercise 6.1
-		assertResult(true)(nonNegativeInt(rng)._1 > 0)
+		assertResult(16159453)(nonNegativeInt(rng)._1)
 
 		// Exercise 6.2
-		assertResult(true)(double(rng).isInstanceOf[(Double, RNG)])
-		assertResult(true)(double(rng)._1 > 0 && double(rng)._1 < 1)
+		assertResult(0.007524831686168909)(double(rng)._1)
 
 		// Exercise 6.3
-		assertResult(true)(intDouble(rng).isInstanceOf[((Int, Double), RNG)])
-		assertResult(true)(doubleInt(rng).isInstanceOf[((Double, Int), RNG)])
-		assertResult(true)(doubleThree(rng).isInstanceOf[((Double, Double, Double), RNG)])
+		assertResult((16159453, 0.5967354848980904))(intDouble(rng)._1)
+		assertResult((0.5967354848980904, 16159453))(doubleInt(rng)._1)
+		assertResult((0.007524831686168909, 0.5967354848980904, 0.15846728393808007))(doubleThree(rng)._1)
 
 		// Exercise 6.4
-		assertResult(5)(ints(5)(rng)._1.count(_.isInstanceOf[Int]))
+		assertResult(List(1770001318, -2015756020, -340305902, -1281479697, 16159453))(ints(5)(rng)._1)
 
 		assertResult(true)(unit("String").isInstanceOf[Rand[String]])
 		assertResult(true)(nonNegativeEven(rng)._1 >= 0 && nonNegativeEven(rng)._1 % 2 == 0)
 
-		assertResult(true)(map(unit("10"))(_.toInt).isInstanceOf[Rand[Int]])
+		assertResult(10)(map(unit("10"))(_.toInt)(rng)._1)
 
 		// Exercise 6.5
-		assertResult(true)(double2(rng).isInstanceOf[(Double, RNG)])
-		assertResult(true)(double2(rng)._1 > 0 && double2(rng)._1 < 1)
+		assertResult(0.007524831686168909)(double2(rng)._1)
 
 		// Exercise 6.6
-		assertResult(true)(map2(unit("10"), unit("5"))((a, b) => a.toInt + b.toInt).isInstanceOf[Rand[Int]])
+		assertResult(15)(mapTwo(unit("10"), unit("5"))((a, b) => a.toInt + b.toInt)(rng)._1)
 
 		assertResult(true)(both(nonNegativeInt, double).isInstanceOf[Rand[(Int, Double)]])
 		assertResult(true)(randIntDouble(unit(1), unit(1.0)).isInstanceOf[Rand[(Int, Double)]])
 		assertResult(true)(randDoubleInt(unit(1.0), unit(1)).isInstanceOf[Rand[(Double, Int)]])
 
 		// Exercise 6.7
-		assertResult(true)(sequence(List(unit(1), unit(2), unit(3))).isInstanceOf[Rand[List[Int]]])
-		assertResult(true)(sequenceViaFoldLeft(List(unit(1), unit(2), unit(3))).isInstanceOf[Rand[List[Int]]])
-		assertResult(5)(ints2(5)(rng)._1.count(_.isInstanceOf[Int]))
+		assertResult(List(1, 2, 3))(sequence(List(unit(1), unit(2), unit(3)))(rng)._1)
+		assertResult(List(1, 2, 3))(sequenceViaFoldLeft(List(unit(1), unit(2), unit(3)))(rng)._1)
+		assertResult(List(16159453, -1281479697, -340305902, -2015756020, 1770001318))(ints2(5)(rng)._1)
 
-		assertResult(true)(nonNegativeLessThan(10)(rng)._1 < 10)
+		assertResult(3)(nonNegativeLessThan(10)(rng)._1)
 
 		// Exercise 6.8
-		assertResult(true)(nonNegativeLessThanViaFlatMap(10)(rng)._1 < 10)
+		assertResult(3)(nonNegativeLessThanViaFlatMap(10)(rng)._1)
 
 		// Exercise 6.9
-		assertResult(true)(mapViaFlatMap(unit("10"))(_.toInt).isInstanceOf[Rand[Int]])
-		assertResult(true)(map2ViaFlatMap(unit("10"), unit("5"))((a, b) => a.toInt + b.toInt).isInstanceOf[Rand[Int]])
+		assertResult(10)(mapViaFlatMap(unit("10"))(_.toInt)(rng)._1)
+		assertResult(15)(mapTwoViaFlatMap(unit("10"), unit("5"))((a, b) => a.toInt + b.toInt)(rng)._1)
+
+		assertResult(2)(rollDie(rng)._1)
+
+		//Exercise 6.10
+		val state = State.unit("usedOnlyToInvokeTestState")
+
+		assertResult(10)(State.unit(10).run(state)._1)
+		assertResult(10)(State.unit("10").map(_.toInt).run(state)._1)
+		assertResult(10)(State.unit("10").map2(_.toInt).run(state)._1)
+		assertResult(15)(State.unit("10").mapTwo(State.unit("5"))((a, b) => a.toInt + b.toInt).run(state)._1)
+		assertResult(15)(State.unit("10").mapTwo2(State.unit("5"))((a, b) => a.toInt + b.toInt).run(state)._1)
+		assertResult(10)(State.unit("10").flatMap(a => State.unit(a.toInt)).run(state)._1)
+		assertResult(List(1, 2, 3))(State.sequence(List(State.unit(1), State.unit(2), State.unit(3))).run(state)._1)
+
+		// Playing with the example on p. 89
+		assertResult(true)(Chapter6.ns.isInstanceOf[Rand2[List[Int]]])
+		assertResult(true)(Chapter6.ns2.isInstanceOf[Rand2[List[Int]]])
+		// assertResult(List(4, -4, -2))(Chapter6.ns(rng))
+		// assertResult(List(4, -4, -2))(Chapter6.ns2(rng))
 
 	test("TypeClasses"):
 		import TypeClasses._
