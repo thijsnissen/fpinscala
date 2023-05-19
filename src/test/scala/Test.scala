@@ -308,8 +308,30 @@ class Test extends AnyFunSuite:
 		// Playing with the example on p. 89
 		assertResult(true)(Chapter6.ns.isInstanceOf[Rand2[List[Int]]])
 		assertResult(true)(Chapter6.ns2.isInstanceOf[Rand2[List[Int]]])
-		// assertResult(List(4, -4, -2))(Chapter6.ns(rng))
-		// assertResult(List(4, -4, -2))(Chapter6.ns2(rng))
+		assertResult(List(4, -4, -2))(Chapter6.ns.run(rng)._1)
+		assertResult(List(4, -4, -2))(Chapter6.ns2.run(rng)._1)
+
+		// Exercise 6.11
+		import Chapter6.Input._
+		import Chapter6.Machine._
+
+		// Example from the book
+		assertResult((14, 1))(simulateMachine(List(Coin, Turn, Coin, Turn, Coin, Turn, Coin, Turn)).run(Machine(false, 5, 10))._1)
+
+		// Inserting a coin into a locked machine will cause it to unlock if there’s any candy left.
+		assertResult(false)(simulateMachine(List(Coin)).run(Machine(true, 1, 0))._2.locked)
+
+		// Turning the knob on an unlocked machine will cause it to dispense candy and become locked.
+		assertResult(true)(simulateMachine(List(Turn)).run(Machine(false, 1, 1))._2.locked)
+		assertResult(0)(simulateMachine(List(Turn)).run(Machine(false, 1, 1))._2.candies)
+
+		// Turning the knob on a locked machine or inserting a coin into an unlocked machine does nothing.
+		assertResult(true)(simulateMachine(List(Turn)).run(Machine(true, 1, 0))._2.locked)
+		assertResult(false)(simulateMachine(List(Coin)).run(Machine(false, 1, 1))._2.locked)
+
+		// A machine that’s out of candy ignores all inputs.
+		assertResult(true)(simulateMachine(List(Turn)).run(Machine(true, 0, 1))._2.locked)
+		assertResult(true)(simulateMachine(List(Coin)).run(Machine(true, 0, 1))._2.locked)
 
 	test("TypeClasses"):
 		import TypeClasses._
