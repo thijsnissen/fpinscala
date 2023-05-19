@@ -230,5 +230,15 @@ object Chapter6 extends App:
 
 	object Machine:
 		def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)] =
-			???
+			m =>
+				val result = inputs.foldRight(m):
+					(i, m) => updateMachine(i)(m)
 
+				((result.coins, result.candies), result)
+
+		private def updateMachine(input: Input)(state: Machine): Machine =
+			(input, state) match
+				case (_, Machine(_, 0, _)) => state
+				case (Input.Coin, Machine(true, candies, coins)) => Machine(false, candies, coins + 1)
+				case (Input.Turn, Machine(false, candies, coins)) => Machine(true, candies - 1, coins)
+				case _ => state
