@@ -179,17 +179,17 @@ object Chapter6 extends App:
 					(ga, gs)
 
 			// As per p. 90
-			def modify(f: S => S): State[S, Unit] =
-				for
-					s <- get
-					_ <- set(f(s))
-				yield ()
+		def modify[S](f: S => S): State[S, Unit] =
+			for
+				s <- get
+				_ <- set(f(s))
+			yield ()
 
-			def get: State[S, S] =
-				s => (s, s)
+		def get[S]: State[S, S] =
+			s => (s, s)
 
-			def set(s: S): State[S, Unit] =
-				_ => ((), s)
+		def set[S](s: S): State[S, Unit] =
+			_ => ((), s)
 
 		def unit[S, A](a: A): State[S, A] =
 			s => (a, s)
@@ -230,9 +230,23 @@ object Chapter6 extends App:
 
 	object Machine:
 		def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)] =
+			for
+				_ <- sequence(inputs.map(i => modify(updateMachine(i))))
+				s <- get
+			yield
+				(s.coins, s.candies)
+
+		def simulateMachine3(inputs: List[Input]): State[Machine, (Int, Int)] =
 			m =>
 				val result = inputs.foldRight(m):
 					(i, m) => updateMachine(i)(m)
+
+				((result.coins, result.candies), result)
+
+		def simulateMachine2(inputs: List[Input]): State[Machine, (Int, Int)] =
+			m: Machine =>
+				val result = inputs.foldLeft(m):
+					(m, i) => updateMachine(i)(m)
 
 				((result.coins, result.candies), result)
 
