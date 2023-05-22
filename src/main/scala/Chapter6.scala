@@ -236,16 +236,9 @@ object Chapter6 extends App:
 			yield
 				(s.coins, s.candies)
 
-		def simulateMachine3(inputs: List[Input]): State[Machine, (Int, Int)] =
-			m =>
-				val result = inputs.foldRight(m):
-					(i, m) => updateMachine(i)(m)
-
-				((result.coins, result.candies), result)
-
 		def simulateMachine2(inputs: List[Input]): State[Machine, (Int, Int)] =
-			m: Machine =>
-				val result = inputs.foldLeft(m):
+			init =>
+				val result = inputs.foldLeft(init):
 					(m, i) => updateMachine(i)(m)
 
 				((result.coins, result.candies), result)
