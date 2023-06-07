@@ -342,6 +342,33 @@ class Test extends AnyFunSuite:
 		assertResult(true)(simulateMachine2(List(Turn)).run(Machine(true, 0, 1))._2.locked)
 		assertResult(true)(simulateMachine2(List(Coin)).run(Machine(true, 0, 1))._2.locked)
 
+	test("Chapter 7"):
+		import Chapter7._
+		import Chapter7.APIExplorations._
+
+		// Exercise 7.1 & Exercise 7.2
+		assertResult(15)(APIExplorations.sum1(Vector(1, 2, 3, 4, 5)))
+		assertResult(APIExploration(15))(APIExplorations.sum2(Vector(1, 2, 3, 4, 5)))
+
+		import Chapter7.Par._
+
+		val executorService = java.util.concurrent.Executors.newFixedThreadPool(20)
+
+		// Exercise 7.5
+		assertResult(List(1, 2, 3, 4, 5))(sortPar(Par.lazyUnit(List(2, 4, 3, 5, 1))).run(executorService).get)
+		assertResult(List(2, 3, 4, 5, 6))(parMap(List(1, 2, 3, 4, 5))(_ + 1).run(executorService).get)
+
+		// Exercise 7.6
+		assertResult(List(1, 2))(parFilter(List(1, 2, 3, 4, 5))(_ < 3).run(executorService).get)
+
+		assertResult(15)(parallelCombination(Vector(1, 2, 3, 4, 5), 0)(identity)(_ + _).run(executorService).get)
+		assertResult(5)(max(Vector(1, 2, 3, 4, 5)).run(executorService).get)
+		assertResult(10)(totalNoOfWords(List("Hi I am Thijs", "I love Scala", "Welcome to DHL")).run(executorService).get)
+
+		import Chapter7.nonBlockingPar._
+
+		executorService.shutdown()
+
 	test("TypeClasses"):
 		import TypeClasses._
 		import TypeClasses.Adder._
