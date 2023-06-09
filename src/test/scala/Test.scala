@@ -360,12 +360,33 @@ class Test extends AnyFunSuite:
 
 		// Exercise 7.6
 		assertResult(List(1, 2))(parFilter(List(1, 2, 3, 4, 5))(_ < 3).run(executorService).get)
-
 		assertResult(15)(parallelCombination(Vector(1, 2, 3, 4, 5), 0)(identity)(_ + _).run(executorService).get)
 		assertResult(5)(max(Vector(1, 2, 3, 4, 5)).run(executorService).get)
 		assertResult(10)(totalNoOfWords(List("Hi I am Thijs", "I love Scala", "Welcome to DHL")).run(executorService).get)
 
-		import Chapter7.nonBlockingPar._
+		// Exercise 7.9 -> Will not work when theadSize is <= 1.
+		val a2 = Par.unit(42 + 1)
+		assertResult(true)(equal(executorService)(a2, Par.fork(Par.fork(a2))))
+
+		// Exercise 7.11
+		assertResult("ViaTrue")(choice(Par.unit(true))(Par.unit("ViaTrue"), Par.unit("ViaFalse")).run(executorService).get)
+		assertResult("ViaFalse")(choice2(Par.unit(false))(Par.unit("ViaTrue"), Par.unit("ViaFalse")).run(executorService).get)
+
+		// Exercise 7.12 & exercise 7.13
+		assertResult("ViaFalse")(choice3(Par.unit(false))(Par.unit("ViaTrue"), Par.unit("ViaFalse")).run(executorService).get)
+		assertResult("Via2")(choiceN2(Par.unit(2))(List(Par.unit("Via0"), Par.unit("Via1"), Par.unit("Via2"))).run(executorService).get)
+		assertResult("ViaOne")(choiceMap(Par.unit("ViaOne"))(Map("ViaZero" -> Par.unit("ViaZero"), "ViaOne" -> Par.unit("ViaOne"), "ViaTwo" -> Par.unit("ViaTwo"))).run(executorService).get)
+
+		// Exercise 7.14
+		assertResult(10)(Par.unit(5).flatMap(n => Par.unit(n * 2)).run(executorService).get)
+		assertResult(10)(flatMapViaJoin(Par.unit(5))(n => Par.unit(n * 2)).run(executorService).get)
+		assertResult(5)(joinViaFlatMap(Par.unit(5).map(Par.unit)).run(executorService).get)
+
+		assertResult(10)(mapTwoViaFlatMapUnit(Par.unit(1 + 1), Par.unit(2 + 3))(_ * _).run(executorService).get)
+
+		import Chapter7.nonBlocking._
+
+		assertResult(100)(nonBlocking.Par.parMap((1 to 100).toList)(_ + 1).run(executorService).size)
 
 		executorService.shutdown()
 
