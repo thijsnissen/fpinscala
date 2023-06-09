@@ -1,7 +1,7 @@
 lazy val root =
 	project
 		.in(file("."))
-		.settings( scalaVersion := "3.3.1-RC1-bin-20230428-a89fbf5-NIGHTLY"
+		.settings( scalaVersion := "3.3.0"
 						, name    := "fpinscala"
 						, version := "0.1.0"
 						, libraryDependencies ++= Seq(
