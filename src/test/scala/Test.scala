@@ -390,6 +390,24 @@ class Test extends AnyFunSuite:
 
 		executorService.shutdown()
 
+	test("Chapter 8"):
+		import Chapter8.Gen._
+
+		val rng = Chapter6.SimpleRNG(42) // used only to invoke test state
+
+		assertResult(List("Thijs", "Thijs", "Thijs"))(listOf(unit("Thijs")).sample.run(rng)._1)
+
+		// Exercise 8.4
+		assertResult(true)(choose(0, 7).sample.run(rng)._1 < 7)
+
+		// Exercise 8.5
+		assertResult("Thijs")(unit("Thijs").sample.run(rng)._1)
+		assertResult(true)(List(true, false).contains(boolean.sample.run(rng)._1))
+		assertResult(List("Thijs", "Thijs", "Thijs"))(listOfN(3, unit("Thijs")).sample.run(rng)._1)
+
+		// Exercise 8.6
+		assertResult(List("Thijs", "Thijs", "Thijs"))(unit("Thijs").listOfNViaFlatMap(unit(3)).sample.run(rng)._1)
+
 	test("TypeClasses"):
 		import TypeClasses._
 		import TypeClasses.Adder._
