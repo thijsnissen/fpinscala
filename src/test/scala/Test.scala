@@ -1,3 +1,4 @@
+import Chapter8.Prop.MaxSize
 import org.scalatest.funsuite.AnyFunSuite
 
 class Test extends AnyFunSuite:
@@ -391,22 +392,52 @@ class Test extends AnyFunSuite:
 		executorService.shutdown()
 
 	test("Chapter 8"):
+		import Chapter8.Gen
 		import Chapter8.Gen._
+		import Chapter8.Prop
+		import Chapter8.Prop.TestCases
 
 		val rng = Chapter6.SimpleRNG(42) // used only to invoke test state
 
-		assertResult(List("Thijs", "Thijs", "Thijs"))(listOf(unit("Thijs")).sample.run(rng)._1)
+		assertResult(List("Thijs", "Thijs", "Thijs"))(listOf(unit("Thijs")).run(rng)._1)
 
 		// Exercise 8.4
-		assertResult(true)(choose(0, 7).sample.run(rng)._1 < 7)
+		assertResult(true)(choose(0, 7).run(rng)._1 < 7)
 
 		// Exercise 8.5
-		assertResult("Thijs")(unit("Thijs").sample.run(rng)._1)
-		assertResult(true)(List(true, false).contains(boolean.sample.run(rng)._1))
-		assertResult(List("Thijs", "Thijs", "Thijs"))(listOfN(3, unit("Thijs")).sample.run(rng)._1)
+		assertResult("Thijs")(unit("Thijs").run(rng)._1)
+		assertResult(true)(List(true, false).contains(boolean.run(rng)._1))
+		assertResult(List("Thijs", "Thijs", "Thijs"))(listOfN(3, unit("Thijs")).run(rng)._1)
 
 		// Exercise 8.6
-		assertResult(List("Thijs", "Thijs", "Thijs"))(unit("Thijs").listOfNViaFlatMap(unit(3)).sample.run(rng)._1)
+		assertResult(List("Thijs", "Thijs", "Thijs"))(unit("Thijs").listOfNViaFlatMap(unit(3)).run(rng)._1)
+
+		// Exercise 8.9
+		val intList = Gen.listOf(Gen.choose(10, 100))
+		val passedProp1 =
+			Prop.forAll(intList)(ns => ns.reverse.reverse == ns) &&
+			Prop.forAll(intList)(ns => ns.headOption == ns.reverse.lastOption)
+		val falsifiedProp = Prop.forAll(intList)(ns => ns.reverse == ns)
+		val passedProp2 = passedProp1 || falsifiedProp
+
+		passedProp1.run()
+		falsifiedProp.run()
+		passedProp2.run()
+
+		assertResult(false)(passedProp1.check().isFalsified)
+		assertResult(true)(falsifiedProp.check().isFalsified)
+		assertResult(false)(passedProp2.check().isFalsified)
+
+		val smallInt = Gen.choose(-10, 10)
+		val maxProp = Prop.forAll(Gen.listOf(smallInt)):
+			ns =>
+				val max = ns.max
+				!ns.exists(_ > max)
+
+		// This should fail on empty list. Does it recieve an empty list in the test?
+		maxProp.run()
+
+		assertResult(false)(maxProp.check().isFalsified)
 
 	test("TypeClasses"):
 		import TypeClasses._
