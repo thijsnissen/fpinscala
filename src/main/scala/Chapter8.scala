@@ -139,7 +139,7 @@ object Chapter8 extends App:
 				randomStream(as)(rng).zip(LazyList.from(0)).take(n).map:
 					case (a, i) =>
 						try
-							if (f(a)) Result.Passed else Result.Falsified(a.toString, i)
+							if (f(a)) Result.Passed else Result.Falsified(s"  ╰ ${a.toString}", i)
 						catch
 							case e: Exception => Result.Falsified(buildMsg(a, e), i)
 				.find(_.isFalsified).getOrElse(Result.Passed)
@@ -148,7 +148,6 @@ object Chapter8 extends App:
 		def forAll[A](g: SGen[A])(f: A => Boolean): Prop =
 			(max, n, rng) =>
 				val casesPerSize = (n + (max - 1)) / max
-
 				val props: LazyList[Prop] =
 					LazyList.from(0).take(math.min(n, max) + 1).map:
 						i => forAll(g.toGen(i))(f)
@@ -165,9 +164,9 @@ object Chapter8 extends App:
 			LazyList.unfold(rng)(rng => Some(g.run(rng)))
 
 		def buildMsg[A](s: A, e: Exception): String =
-			s"test case: ${s}\n" +
-			s"generated an exception: ${e.getMessage}\n" +
-			s"stack trace:\n ${e.getStackTrace.mkString("\n")}"
+			s"  ├ test case: $s\n" +
+			s"  ╰ generated an exception: ${e.getMessage}"
+			// + s"\n stack trace:\n ${e.getStackTrace.mkString("\n")}"
 
 		extension (self: Prop)
 			def run(
@@ -177,7 +176,7 @@ object Chapter8 extends App:
 			): Unit =
 				self.check(m, n, rng) match
 					case Result.Falsified(msg, c) =>
-						println(s"${Console.RED}! Falsified after $c passes tests:\n $msg${Console.RESET}")
+						println(s"${Console.RED}! Falsified after $c passed tests:\n$msg${Console.RESET}")
 					case Result.Passed =>
 						println(s"${Console.GREEN}+ OK, passed $n tests.${Console.RESET}")
 
@@ -190,14 +189,14 @@ object Chapter8 extends App:
 
 			@annotation.targetName("and")
 			def &&(that: Prop): Prop =
-				(m, n, rng) => self.tag("and-left").check(m, n, rng) match
-					case Result.Passed => that.tag("and-right").check(m, n, rng)
+				(m, n, rng) => self.check(m, n, rng) match
+					case Result.Passed => that.check(m, n, rng)
 					case falsified => falsified
 
 			@annotation.targetName("or")
 			def ||(that: Prop): Prop =
-				(m, n, rng) => self.tag("or-left").check(m, n, rng) match
-					case Result.Falsified(msg, _) => that.tag("or-right").tag(msg).check(m, n, rng)
+				(m, n, rng) => self.check(m, n, rng) match
+					case Result.Falsified(msg, _) => that.tag(msg).check(m, n, rng)
 					case passed => passed
 
 			def tag(msg: FailedCase): Prop =
@@ -214,9 +213,13 @@ object Chapter8 extends App:
 		def unit[A](a: => A): SGen[A] =
 			(_: Int) => Gen.unit(a)
 
-		// Exercise 8.13
+		// Exercise 8.12
 		def listOf[A](g: Gen[A]): SGen[List[A]] =
 			(n: Int) => Gen.listOfN(n, g)
+
+		// Exercise 8.13
+		def listOf1[A](g: Gen[A]): SGen[List[A]] =
+			(n: Int) => Gen.listOfN(if n <= 0 then 1 else n, g)
 
 		extension [A](self: SGen[A])
 			// Exercise 8.11

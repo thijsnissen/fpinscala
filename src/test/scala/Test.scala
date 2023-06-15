@@ -428,16 +428,26 @@ class Test extends AnyFunSuite:
 		assertResult(true)(falsifiedProp.check().isFalsified)
 		assertResult(false)(passedProp2.check().isFalsified)
 
+		// Exercise 8.12
 		val smallInt = Gen.choose(-10, 10)
-		val maxProp = Prop.forAll(Gen.listOf(smallInt)):
-			ns =>
+		val maxProp1 = Prop.forAll(Chapter8.SGen.listOf(smallInt)):
+			(ns: List[Int]) =>
 				val max = ns.max
 				!ns.exists(_ > max)
 
-		// This should fail on empty list. Does it recieve an empty list in the test?
-		maxProp.run()
+		maxProp1.run()
 
-		assertResult(false)(maxProp.check().isFalsified)
+		assertResult(true)(maxProp1.check().isFalsified)
+
+		// Exercise 8.13
+		val maxProp2 = Prop.forAll(Chapter8.SGen.listOf1(smallInt)):
+			(ns: List[Int]) =>
+				val max = ns.max
+				!ns.exists(_ > max)
+
+		maxProp2.run()
+
+		assertResult(false)(maxProp2.check().isFalsified)
 
 	test("TypeClasses"):
 		import TypeClasses._
