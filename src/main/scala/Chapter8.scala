@@ -1,6 +1,3 @@
-import Chapter6.SimpleRNG
-import Chapter8.Prop.Result.Falsified
-
 object Chapter8 extends App:
 	// Exercise 8.1
 	// val randomIntList = Gen.ListOf(Gen.choose(0, 100))
@@ -46,6 +43,10 @@ object Chapter8 extends App:
 	object Gen:
 		opaque type Gen[+A] = State[RNG, A]
 
+		@annotation.targetName("product")
+		object `**`:
+			def unapply[A, B](p: (A, B)): Option[(A, B)] = Some(p)
+
 		def listOf[A](a: Gen[A]): Gen[List[A]] =
 			listOfN(3, a)
 
@@ -90,6 +91,9 @@ object Chapter8 extends App:
 			def flatMap[B](f: A => Gen[B]): Gen[B] =
 				State.flatMap(self)(a => f(a))
 
+			def map[B](f: A => B): Gen[B] =
+				self.flatMap(a => unit(f(a)))
+
 			def listOfNViaFlatMap(size: Gen[Int]): Gen[List[A]] =
 				size.flatMap(n => Gen.listOfN(n, self))
 
@@ -99,6 +103,10 @@ object Chapter8 extends App:
 			// Exercise 8.10
 			def unsized: SGen[A] =
 				SGen.fromGen(self)
+
+			@annotation.targetName("product")
+			def **[B](that: Gen[B]): Gen[(A, B)] =
+				self.mapTwo(that)((_, _))
 
 	import Gen._
 	import SGen._
@@ -127,12 +135,17 @@ object Chapter8 extends App:
 			def fromInt(t: Int): TestCases = t
 
 		enum Result:
+			case Proved
 			case Passed
 			case Falsified(failure: FailedCase, successes: SuccessCount)
 
 			def isFalsified: Boolean = this match
-				case Passed => false
+				case Passed | Proved => false
 				case Falsified(_, _) => true
+
+		def forOne(p: => Boolean): Prop =
+			(_, _, _) =>
+				if p then Result.Proved else Result.Falsified("()", 0)
 
 		def forAll[A](as: Gen[A])(f: A => Boolean): Prop =
 			(_, n, rng) =>
@@ -160,6 +173,21 @@ object Chapter8 extends App:
 
 				prop.check(max, n, rng)
 
+		import Chapter7.Par
+		import Chapter7.Par._
+
+		import java.util.concurrent._
+
+		def forAllPar[A](g: Gen[A])(f: A => Par[Boolean]): Prop =
+			val S: Gen[ExecutorService] =
+				weighted(
+					choose(1, 4).map(Executors.newFixedThreadPool) -> .75,
+					Gen.unit(Executors.newCachedThreadPool) -> .25
+				)
+
+			forAll(S ** g):
+				case s ** a => f(a).run(s).get
+
 		def randomStream[A](g: Gen[A])(rng: RNG): LazyList[A] =
 			LazyList.unfold(rng)(rng => Some(g.run(rng)))
 
@@ -167,6 +195,8 @@ object Chapter8 extends App:
 			s"  ├ test case: $s\n" +
 			s"  ╰ generated an exception: ${e.getMessage}"
 			// + s"\n stack trace:\n ${e.getStackTrace.mkString("\n")}"
+
+		import Chapter6.SimpleRNG
 
 		extension (self: Prop)
 			def run(
@@ -176,9 +206,11 @@ object Chapter8 extends App:
 			): Unit =
 				self.check(m, n, rng) match
 					case Result.Falsified(msg, c) =>
-						println(s"${Console.RED}! Falsified after $c passed tests:\n$msg${Console.RESET}")
+						println(s"${Console.RED}✘ Falsified after $c passed tests:\n$msg${Console.RESET}")
 					case Result.Passed =>
-						println(s"${Console.GREEN}+ OK, passed $n tests.${Console.RESET}")
+						println(s"${Console.GREEN}✔ OK, passed $n tests.${Console.RESET}")
+					case Result.Proved =>
+						println(s"${Console.GREEN}✔ OK, proved property.${Console.RESET}")
 
 			def check(
 				m: MaxSize = 100,
@@ -190,19 +222,19 @@ object Chapter8 extends App:
 			@annotation.targetName("and")
 			def &&(that: Prop): Prop =
 				(m, n, rng) => self.check(m, n, rng) match
-					case Result.Passed => that.check(m, n, rng)
+					case Result.Passed | Result.Proved => that.check(m, n, rng)
 					case falsified => falsified
 
 			@annotation.targetName("or")
 			def ||(that: Prop): Prop =
 				(m, n, rng) => self.check(m, n, rng) match
 					case Result.Falsified(msg, _) => that.tag(msg).check(m, n, rng)
-					case passed => passed
+					case passedOrProved => passedOrProved
 
 			def tag(msg: FailedCase): Prop =
 				(m, n, rng) => self.check(m, n, rng) match
 					case Result.Falsified(fc, sc) => Result.Falsified(s"$msg \n $fc", sc)
-					case passed => passed
+					case passedOrProved => passedOrProved
 
 	object SGen:
 		opaque type SGen[+A] = Int => Gen[A]

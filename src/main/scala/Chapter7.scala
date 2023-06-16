@@ -124,6 +124,9 @@ object Chapter7 extends App:
 		def equal[A](e: ExecutorService)(p1: Par[A], p2: Par[A]): Boolean =
 			p1(e).get == p2(e).get
 
+		def equal2[A](p1: Par[A], p2: Par[A]): Par[Boolean] =
+			p1.mapTwo(p2)(_ == _)
+
 		// Let's us delay instantiation of a computation until it is actually needed.
 		def delay[A](fa: => Par[A]): Par[A] =
 			es => fa(es)

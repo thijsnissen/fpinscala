@@ -1,4 +1,3 @@
-import Chapter8.Prop.MaxSize
 import org.scalatest.funsuite.AnyFunSuite
 
 class Test extends AnyFunSuite:
@@ -396,6 +395,7 @@ class Test extends AnyFunSuite:
 		import Chapter8.Gen._
 		import Chapter8.Prop
 		import Chapter8.Prop.TestCases
+		import Chapter8.Prop.MaxSize
 
 		val rng = Chapter6.SimpleRNG(42) // used only to invoke test state
 
@@ -414,6 +414,7 @@ class Test extends AnyFunSuite:
 
 		// Exercise 8.9
 		val intList = Gen.listOf(Gen.choose(10, 100))
+
 		val passedProp1 =
 			Prop.forAll(intList)(ns => ns.reverse.reverse == ns) &&
 			Prop.forAll(intList)(ns => ns.headOption == ns.reverse.lastOption)
@@ -430,6 +431,7 @@ class Test extends AnyFunSuite:
 
 		// Exercise 8.12
 		val smallInt = Gen.choose(-10, 10)
+
 		val maxProp1 = Prop.forAll(Chapter8.SGen.listOf(smallInt)):
 			(ns: List[Int]) =>
 				val max = ns.max
@@ -448,6 +450,45 @@ class Test extends AnyFunSuite:
 		maxProp2.run()
 
 		assertResult(false)(maxProp2.check().isFalsified)
+
+		// Exercise 8.14
+		val sortedProp =
+			Prop.forAll(Chapter8.SGen.listOf(smallInt))((ns: List[Int]) => ns.sorted == ns.reverse.sorted) &&
+			Prop.forAll(Chapter8.SGen.listOf(smallInt))((ns: List[Int]) => ns.sorted.size == ns.size) &&
+			Prop.forAll(Chapter8.SGen.listOf(smallInt))((ns: List[Int]) => ns.sorted.forall(ns.contains)) &&
+			Prop.forAll(Chapter8.SGen.listOf1(smallInt)):
+				(ns: List[Int]) =>
+					val n = ns.sorted
+					n.zip(n.tail).forall((a, b) => a <= b)
+
+		sortedProp.run()
+
+		assertResult(false)(sortedProp.check().isFalsified)
+
+		// Exercise 8.15
+		val booleanProp =
+			Prop.forAll(Gen.unit(true))((b: Boolean) => b) &&
+			Prop.forAll(Gen.unit(false))((b: Boolean) => !b)
+
+		booleanProp.run(MaxSize.fromInt(1), TestCases.fromInt(1))
+
+		assertResult(false)(booleanProp.check(MaxSize.fromInt(1), TestCases.fromInt(1)).isFalsified)
+
+		import Chapter7.Par
+
+		val executor = java.util.concurrent.Executors.newFixedThreadPool(20)
+
+		val parProp1 = Prop.forOne(Par.equal2(Par.unit(1).map(_ + 1), Par.unit(2)).run(executor).get)
+		val parProp2 = Prop.forAll(smallInt):
+			i => Par.equal2(Par.unit(i).map(_ + 1), Par.unit(i + 1)).run(executor).get
+
+		parProp1.run()
+		parProp2.run()
+
+		assertResult(false)(parProp1.check().isFalsified)
+		assertResult(false)(parProp2.check().isFalsified)
+
+		// TODO: val parProp3 = Prop.ForAllPar -> Sized vs unsized
 
 	test("TypeClasses"):
 		import TypeClasses._
