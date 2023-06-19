@@ -564,6 +564,9 @@ class Test extends AnyFunSuite:
 
 		assertResult(false)(treeProp2.check(MaxSize.fromInt(10)).isFalsified)
 
+	test("Chapter 9"):
+		assertResult(true)(true)
+
 	test("TypeClasses"):
 		import TypeClasses._
 		import TypeClasses.Adder._
