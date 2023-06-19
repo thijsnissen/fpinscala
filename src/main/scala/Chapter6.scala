@@ -141,6 +141,13 @@ object Chapter6 extends App:
 
 		def rollDie: Rand[Int] = map(nonNegativeLessThan(6))(_ + 1)
 
+		def boolean(rng: RNG): (Boolean, RNG) =
+			rng.nextInt match
+				case (i, rng2) => (i % 2 == 0, rng2)
+
+		import Chapter3.Tree
+		import Chapter3.Tree._
+
 	// Exercise 6.10
 	opaque type State[S, +A] = S => (A, S)
 
@@ -181,7 +188,7 @@ object Chapter6 extends App:
 			// As per p. 90
 		def modify[S](f: S => S): State[S, Unit] =
 			for
-				s <- get
+				s: S <- get
 				_ <- set(f(s))
 			yield ()
 
@@ -197,6 +204,20 @@ object Chapter6 extends App:
 		def sequence[A, S](fs: List[State[S, A]]): State[S, List[A]] =
 			fs.foldRight(unit(List.empty[A])):
 				(s, acc) => s.mapTwo(acc)(_ :: _)
+
+		import Chapter3.Tree
+		import Chapter3.Tree._
+
+		def sequenceTree[S, A](fs: Tree[State[S, A]]): State[S, Tree[A]] =
+			fs match
+				case Branch(l, r) => sequenceTree(l).mapTwo(sequenceTree(r))(Branch(_, _))
+				case Leaf(v) => State:
+					(s: S) =>
+						val (na, ns) = v.run(s)
+
+						(Leaf(na), ns)
+
+		def apply[S, A](f: S => (A, S)): State[S, A] = f
 
 	// Playing with the example on p. 89
 	import Chapter6.State._

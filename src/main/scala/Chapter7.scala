@@ -251,6 +251,9 @@ object Chapter7 extends App:
 					new Callable[Unit]:
 						def call: Unit = r
 
+			def equal2[A](p1: Par[A], p2: Par[A]): Par[Boolean] =
+				p1.mapTwo(p2)(_ == _)
+
 			def parMap[A, B](ps: List[A])(f: A => B): Par[List[B]] =
 				fork(sequence(ps.map(asyncF(f))))
 

@@ -1,3 +1,4 @@
+import Chapter8.Prop.forAll
 import org.scalatest.funsuite.AnyFunSuite
 
 class Test extends AnyFunSuite:
@@ -389,6 +390,179 @@ class Test extends AnyFunSuite:
 		assertResult(100)(nonBlocking.Par.parMap((1 to 100).toList)(_ + 1).run(executorService).size)
 
 		executorService.shutdown()
+
+	test("Chapter 8"):
+		import Chapter8.Gen
+		import Chapter8.Gen._
+		import Chapter8.Prop
+		import Chapter8.Prop.TestCases
+		import Chapter8.Prop.MaxSize
+
+		val rng = Chapter6.SimpleRNG(42) // used only to invoke test state
+
+		assertResult(List("Thijs", "Thijs", "Thijs"))(listOf(unit("Thijs")).run(rng)._1)
+
+		// Exercise 8.4
+		assertResult(true)(choose(0, 7).run(rng)._1 < 7)
+
+		// Exercise 8.5
+		assertResult("Thijs")(unit("Thijs").run(rng)._1)
+		assertResult(true)(List(true, false).contains(boolean.run(rng)._1))
+		assertResult(List("Thijs", "Thijs", "Thijs"))(listOfN(3, unit("Thijs")).run(rng)._1)
+
+		// Exercise 8.6
+		assertResult(List("Thijs", "Thijs", "Thijs"))(unit("Thijs").listOfNViaFlatMap(unit(3)).run(rng)._1)
+
+		// Exercise 8.9
+		val intList = Gen.listOf(Gen.choose(10, 100))
+
+		val passedProp1 =
+			Prop.forAll(intList)(ns => ns.reverse.reverse == ns) &&
+			Prop.forAll(intList)(ns => ns.headOption == ns.reverse.lastOption)
+		val falsifiedProp = Prop.forAll(intList)(ns => ns.reverse == ns)
+		val passedProp2 = passedProp1 || falsifiedProp
+
+		passedProp1.run("Exercise 8.9")
+		falsifiedProp.run("Exercise 8.9")
+		passedProp2.run("Exercise 8.9")
+
+		assertResult(false)(passedProp1.check().isFalsified)
+		assertResult(true)(falsifiedProp.check().isFalsified)
+		assertResult(false)(passedProp2.check().isFalsified)
+
+		// Exercise 8.12
+		val smallInt = Gen.choose(-10, 10)
+
+		val maxProp1 = Prop.forAll(Chapter8.SGen.listOf(smallInt)):
+			(ns: List[Int]) =>
+				val max = ns.max
+				!ns.exists(_ > max)
+
+		maxProp1.run("Exercise 8.12")
+
+		assertResult(true)(maxProp1.check().isFalsified)
+
+		// Exercise 8.13
+		val maxProp2 = Prop.forAll(Chapter8.SGen.listOf1(smallInt)):
+			(ns: List[Int]) =>
+				val max = ns.max
+				!ns.exists(_ > max)
+
+		maxProp2.run("Exercise 8.13")
+
+		assertResult(false)(maxProp2.check().isFalsified)
+
+		// Exercise 8.14
+		val sortedProp =
+			Prop.forAll(Chapter8.SGen.listOf(smallInt))((ns: List[Int]) => ns.sorted == ns.reverse.sorted) &&
+			Prop.forAll(Chapter8.SGen.listOf(smallInt))((ns: List[Int]) => ns.sorted.size == ns.size) &&
+			Prop.forAll(Chapter8.SGen.listOf(smallInt))((ns: List[Int]) => ns.sorted.forall(ns.contains)) &&
+			Prop.forAll(Chapter8.SGen.listOf1(smallInt)):
+				(ns: List[Int]) =>
+					val n = ns.sorted
+					n.zip(n.tail).forall((a, b) => a <= b)
+
+		sortedProp.run("Exercise 8.14")
+
+		assertResult(false)(sortedProp.check().isFalsified)
+
+		// Exercise 8.15
+		val booleanProp =
+			Prop.forAll(Gen.unit(true))((b: Boolean) => b) &&
+			Prop.forAll(Gen.unit(false))((b: Boolean) => !b)
+
+		booleanProp.run(name = "Exercise 8.15", m = MaxSize.fromInt(1), n = TestCases.fromInt(1))
+
+		assertResult(false)(booleanProp.check(MaxSize.fromInt(1), TestCases.fromInt(1)).isFalsified)
+
+		val charProp = forAll(Chapter8.SGen.listOf(Gen.char(5))):
+			c => c.mkString.length == c.size
+
+		charProp.run("Char test")
+
+		assertResult(false)(charProp.check().isFalsified)
+
+		import Chapter7.nonBlocking.Par
+
+		val executor = java.util.concurrent.Executors.newFixedThreadPool(20)
+
+		val parProp1 = Prop.forOne(Par.equal2(Par.unit(1).map(_ + 1), Par.unit(2)).run(executor))
+		val parProp2 = Prop.forAll(smallInt):
+			i => Par.equal2(Par.unit(i).map(_ + 1), Par.unit(i + 1)).run(executor)
+
+		parProp1.run("Par test 1")
+		parProp2.run("Par test 2")
+
+		assertResult(false)(parProp1.check().isFalsified)
+		assertResult(false)(parProp2.check().isFalsified)
+
+		val pInt = Gen.choose(0, 10).map(Par.unit)
+		val parProp3 = Prop.forAllPar(pInt):
+			n => Par.equal2(n.map(identity), n)
+
+		parProp3.run("Par test 3")
+
+		assertResult(false)(parProp3.check().isFalsified)
+
+		val pInt2 = Chapter8.SGen.listOf(Gen.choose(0, 20)).map:
+			(l: List[Int]) => Par.unit(l)
+
+		val parProp4 = Prop.forAllPar(pInt2):
+			n => Par.equal2(n.map(identity), n)
+
+		parProp4.run("Par test 4")
+
+		assertResult(false)(parProp4.check().isFalsified)
+
+		// Exercise 8.16
+		val pInt3 = Chapter8.SGen.listOf(Gen.choose(0, 10)).map:
+			l => l.foldLeft(Par.unit(0)):
+				(acc, i) => Par.fork:
+					acc.mapTwo(Par.fork(Par.unit(i)))(_ + _)
+
+		// Exercise 8.17
+		val parProp5 =
+			Prop
+				.forAllPar(pInt3):
+					n => Par.equal2(Par.fork(n), n)
+				.tag(Prop.FailedCase.fromString("fork"))
+
+		parProp5.run("Exercise 8.17")
+
+		assertResult(false)(parProp5.check().isFalsified)
+
+		// Exercise 8.19
+		val fn = Gen.genStringIntFn
+		val fnProp = forAll(fn)(f => f("test") > 0)
+
+		fnProp.run("Exercise 8.19")
+
+		assertResult(false)(fnProp.check().isFalsified)
+
+		val fn2 = Gen.genStringIntFn2(smallInt)
+		val fnProp2 = forAll(fn2)(f => f("test").isInstanceOf[Int])
+
+		fnProp2.run("Function test")
+
+		assertResult(false)(fnProp2.check().isFalsified)
+
+		import Chapter3.Tree
+		import Chapter3.Tree._
+
+		// Exercise 8.20
+		val treeProp = Prop.forAll(Chapter8.Gen.treeOfN(6, smallInt)):
+			(t: Tree[Int]) => Tree.size(t) == math.pow(2, Tree.depth(t)) - 1
+
+		treeProp.run("Tree test unsized")
+
+		assertResult(false)(treeProp.check().isFalsified)
+
+		val treeProp2 = Prop.forAll(Chapter8.SGen.treeOf(smallInt)):
+			(t: Tree[Int]) => Tree.size(t) == math.pow(2, Tree.depth(t)) - 1
+
+		treeProp2.run(name = "Tree test sized", m = MaxSize.fromInt(10))
+
+		assertResult(false)(treeProp2.check(MaxSize.fromInt(10)).isFalsified)
 
 	test("TypeClasses"):
 		import TypeClasses._
