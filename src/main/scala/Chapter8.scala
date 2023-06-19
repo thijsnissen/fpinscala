@@ -35,6 +35,11 @@ object Chapter8 extends App:
 	// 		def check: Boolean =
 	// 			self.check && that.check
 
+	// Exercise 8.18
+	// List.takeWhile(f).forall(f) == true
+	// List.takeWhile(f) :: List.dropWhile(f) == List
+	// List.takeWhile(f).map(List.contains)
+
 	import Chapter6.Rand
 	import Chapter6.State
 	import Chapter6.RNG
@@ -86,6 +91,26 @@ object Chapter8 extends App:
 
 			State(Rand.double).flatMap(d => if d <= treshold then ga else gb)
 
+		def char(n: Int): Gen[Char] =
+			choose(65, 122).map(_.toChar)
+
+		// Exercise 8.19
+		def genStringIntFn: Gen[String => Int] =
+			Gen.unit(s => s.toList.map(_.toInt).sum)
+
+		def genStringIntFn2[A](g: Gen[A]): Gen[String => A] =
+				State: rng =>
+					val (a, r) = rng.nextInt
+
+					((s: String) => g.run(Chapter6.SimpleRNG(s.toList.map(_.toInt).sum.toLong + a.toLong))._1, r)
+
+		import Chapter3.Tree
+		import Chapter3.Tree._
+
+		// Exercise 8.20
+		def treeOfN[A](n: Int, g: Gen[A]): Gen[Tree[A]] =
+			State.sequenceTree(Tree.fill(n)(g))
+
 		extension [A](self: Gen[A])
 			// Exercise 8.6
 			def flatMap[B](f: A => Gen[B]): Gen[B] =
@@ -117,6 +142,9 @@ object Chapter8 extends App:
 		opaque type SuccessCount = Int
 
 		opaque type FailedCase = String
+
+		object FailedCase:
+			def fromString(m: String): FailedCase = m
 
 		opaque type MaxSize = Int
 
@@ -173,8 +201,8 @@ object Chapter8 extends App:
 
 				prop.check(max, n, rng)
 
-		import Chapter7.Par
-		import Chapter7.Par._
+		import Chapter7.nonBlocking.Par
+		import Chapter7.nonBlocking.Par._
 
 		import java.util.concurrent._
 
@@ -186,7 +214,30 @@ object Chapter8 extends App:
 				)
 
 			forAll(S ** g):
-				case s ** a => f(a).run(s).get
+				case s ** a => f(a).run(s)
+
+		@annotation.targetName("forAllParSized")
+		def forAllPar[A](g: SGen[A])(f: A => Par[Boolean]): Prop =
+			(max, n, rng) =>
+				val S: Gen[ExecutorService] =
+					weighted(
+						choose(1, 4).map(Executors.newFixedThreadPool) -> .75,
+						Gen.unit(Executors.newCachedThreadPool) -> .25
+					)
+
+				val casesPerSize = (n + (max - 1)) / max
+				val props: LazyList[Prop] =
+					LazyList.from(0).take(math.min(n, max) + 1).map:
+						i => forAll(S ** g.toGen(i)):
+							case s ** a => f(a).run(s)
+
+				val prop: Prop =
+					props.map[Prop]:
+						p => (max, _, rng) => p.check(max, casesPerSize, rng)
+					.toList
+					.reduce(_ && _)
+
+				prop.check(max, n, rng)
 
 		def randomStream[A](g: Gen[A])(rng: RNG): LazyList[A] =
 			LazyList.unfold(rng)(rng => Some(g.run(rng)))
@@ -199,18 +250,18 @@ object Chapter8 extends App:
 		import Chapter6.SimpleRNG
 
 		extension (self: Prop)
-			def run(
+			def run(name: String = "",
 				m: MaxSize = 100,
 				n: TestCases = 100,
 				rng: RNG = SimpleRNG(System.currentTimeMillis)
 			): Unit =
 				self.check(m, n, rng) match
 					case Result.Falsified(msg, c) =>
-						println(s"${Console.RED}✘ Falsified after $c passed tests:\n$msg${Console.RESET}")
+						println(s"${Console.RED}✘ Falsified after $c passed tests: $name\n$msg${Console.RESET}")
 					case Result.Passed =>
-						println(s"${Console.GREEN}✔ OK, passed $n tests.${Console.RESET}")
+						println(s"${Console.GREEN}✔ OK, passed $n tests: $name${Console.RESET}")
 					case Result.Proved =>
-						println(s"${Console.GREEN}✔ OK, proved property.${Console.RESET}")
+						println(s"${Console.GREEN}✔ OK, proved property: $name${Console.RESET}")
 
 			def check(
 				m: MaxSize = 100,
@@ -252,6 +303,13 @@ object Chapter8 extends App:
 		// Exercise 8.13
 		def listOf1[A](g: Gen[A]): SGen[List[A]] =
 			(n: Int) => Gen.listOfN(if n <= 0 then 1 else n, g)
+
+		import Chapter3.Tree
+		import Chapter3.Tree._
+
+		// Exercise 8.20
+		def treeOf[A](g: Gen[A]): SGen[Tree[A]] =
+			(n: Int) => Gen.treeOfN(n, g)
 
 		extension [A](self: SGen[A])
 			// Exercise 8.11

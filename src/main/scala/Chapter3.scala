@@ -230,6 +230,18 @@ object Chapter3 extends App:
 		)
 
 	object Tree:
+		def fill[A](n: Int)(a: => A): Tree[A] =
+			@annotation.tailrec
+			def go(acc: Tree[A]): Tree[A] =
+				if depth(acc) >= n then
+					acc
+				else
+					acc match
+						case l: Leaf[A] => go(Branch(l, l))
+						case b: Branch[A] => go(Branch(b, b))
+
+			go(Leaf(a))
+
 		// Exercise 3.25
 		def size[A](tree: Tree[A]): Int =
 			tree match
