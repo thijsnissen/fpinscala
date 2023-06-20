@@ -565,6 +565,57 @@ class Test extends AnyFunSuite:
 		assertResult(false)(treeProp2.check(MaxSize.fromInt(10)).isFalsified)
 
 	test("Chapter 9"):
+		// import Chapter9.Parsers
+		//
+		// assertResult(Right('x'))(run(Parsers.char('x'))('x'.toString))
+		// assertResult(Right("x"))(run(Parsers.string("x"))("x"))
+		// assertResult(Right("abra"))(run(Parsers.or(Parsers.string("abra"), Parsers.string("cadabra")))("abra"))
+		// assertResult(Right("cadabra"))(run(Parsers.or(Parsers.string("abra"), Parsers.string("cadabra")))("cadabra"))
+		// assertResult(Right(List("ab", "ab", "cad")))(run(listOfN(3, "ab" | "cad"))("ababcad"))
+		//
+		// val numA1: Parser[Int] = char('a').many.map(_.size)
+		// assertResult(Right(3))(numA1.run("aaa"))
+		// assertResult(Right(3))(numA1.run("aaba"))
+		//
+		// val numA2: Parser[Int] = char('a').many.slice.map(_.size)
+		//
+		// val numAB: Parser[Int] = char('a').many.slice.map(_.size) ** char('b').many.slice.map(_.size)
+		//
+		// assertResult(Right("test"))(succeed(a).run("Test"))
+		//
+    // assertResult(Right("aaba"))(run(slice('a'|'b').many))("aaba")
+		//
+		// // Exercise 9.2
+		// (a ** b) ** c map (unbiasL) == a ** (b ** c) map (unbiasR)
+		//
+		// val f = many
+		// a.map(f) ** b.map(f) == (a ** b) map { case (a, b) => (f(a), g(b)) }
+		//
+		// // Exercise 9.6
+		// for {
+		// 	digit <- "[0-9]+".r
+		// 	val n = digit.toInt
+		// 	// we really should catch exceptions thrown by toInt // and convert to parse failure
+		// 	_ <- listOfN(n, char('a'))
+		// } yield n
+		//
+		//
+		// object Laws:
+		//
+		// 	import Chapter8.Gen._
+		// 	import Chapter8.Prop._
+		//
+		// 	def equal[A](p1: Parser[A], p2: Parser[A])(in: Gen[String]): Prop =
+		// 		forAll(in)((s: String) => p1.run(s) == p2.run(s))
+		//
+		// 	def mapLaw[A](p: Parser[A])(in: Gen[String]): Prop =
+		// 		equal(p, p.map(identity))(in)
+		//
+		// 	def unbiasL[A, B, C](p: ((A, B), C)): (A, B, C) = (p._1._1, p._1._2, p._2)
+		//
+		// 	def unbiasR[A, B, C](p: (A, (B, C))): (A, B, C) = (p._1, p._2._1, p._2._2)
+		//
+		//
 		assertResult(true)(true)
 
 	test("TypeClasses"):
