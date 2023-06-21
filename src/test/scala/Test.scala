@@ -616,6 +616,26 @@ class Test extends AnyFunSuite:
 		// 	def unbiasR[A, B, C](p: (A, (B, C))): (A, B, C) = (p._1, p._2._1, p._2._2)
 		//
 		//
+		//
+		// val jsonTxt =
+		// 	"""
+		// {
+		// 	"Company name" : "Microsoft Corporation",
+		// 	"Ticker"  : "MSFT",
+		// 	"Active"  : true,
+		// 	"Price"   : 30.66,
+		// 	"Shares outstanding" : 8.38e9,
+		// 	"Related companies" : [ "HPQ", "IBM", "YHOO", "DELL", "GOOG" ]
+		// }
+		// """
+		//
+		// def labelLaw[A](p: Parser[A], inputs: SGen[String]): Prop =
+		// 	forAll(inputs ** Gen.string):
+		// 		case (input, msg) =>
+		// 			run(label(msg)(p))(input) match
+		// 				case Left(e) => errorMessage(e) == msg
+		// 				case _ => true
+
 		assertResult(true)(true)
 
 	test("TypeClasses"):
