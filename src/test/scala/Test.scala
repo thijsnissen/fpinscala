@@ -475,7 +475,7 @@ class Test extends AnyFunSuite:
 
 		assertResult(false)(booleanProp.check(MaxSize.fromInt(1), TestCases.fromInt(1)).isFalsified)
 
-		val charProp = forAll(Chapter8.SGen.listOf(Gen.char(5))):
+		val charProp = forAll(Chapter8.SGen.listOf(Gen.char)):
 			c => c.mkString.length == c.size
 
 		charProp.run("Char test")
@@ -565,6 +565,63 @@ class Test extends AnyFunSuite:
 		assertResult(false)(treeProp2.check(MaxSize.fromInt(10)).isFalsified)
 
 	test("Chapter 9"):
+		import Chapter9._
+		import Chapter9.Result._
+
+		// Char
+		assertResult(Right('c'))(Parser.char('c').run("c").extract)
+
+		// String
+		assertResult(Right("string"))(Parser.string("string").run("string").extract)
+
+		// Or
+		assertResult(Right("abra"))((Parser.string("abra") | Parser.string("cadabra")).run("abra").extract)
+		assertResult(Right("cadabra"))((Parser.string("abra") | Parser.string("cadabra")).run("cadabra").extract)
+
+		// zeroOrMore & oneOrMore
+		assertResult(Right(3))(Parser.char('a').zeroOrMore.map(_.size).run("aaaba").extract)
+		assertResult(Right(5))((Parser.char('a') | Parser.char('b')).oneOrMore.map(_.size).run("aaaba").extract)
+
+		// Map
+		assertResult(Right("structurePreserving"))(Parser.string("structurePreserving").map(identity).run("structurePreserving").extract)
+
+		import Chapter8.Gen
+		import Chapter8.Gen._
+		import Chapter8.Prop
+		import Chapter8.Prop._
+
+		def equal[A](p1: Parser[A], p2: Parser[A])(in: Gen[String]): Prop =
+			forAll(in)(s =>	p1.run(s) == p2.run(s))
+
+		val mapLawProp = equal(
+				Parser.string("structurePreserving"),
+				Parser.string("structurePreserving").map(identity))(Gen.string(10)
+			).check().isFalsified
+
+		assertResult(false)(mapLawProp)
+
+		// Succeed
+		assertResult(Right("unit"))(Parser.succeed("unit").run("NotUnit").extract)
+
+		// Times, Regex & Slice
+		assertResult(Right("4aaaa"))(Parser.regex("[0-9]".r).flatMap(i => Parser.regex("[a-zA-Z]".r).times(i.toInt)).slice.run("4aaaa").extract)
+
+		import Chapter9.JSON
+
+		val jsonTxt =
+			"""
+		|{
+		|	"Company name" : "Microsoft Corporation",
+		|	"Ticker"  : "MSFT",
+		|	"Active"  : true,
+		|	"Price"   : 30.66,
+		|	"Shares outstanding" : 8.38e9,
+		|	"Related companies" : [ "HPQ", "IBM", "YHOO", "DELL", "GOOG" ]
+		|}
+		""".stripMargin
+
+		println(JSON.JSONParser.run(jsonTxt))
+
 		// import Chapter9.Parsers
 		//
 		// assertResult(Right('x'))(run(Parsers.char('x'))('x'.toString))
@@ -617,17 +674,6 @@ class Test extends AnyFunSuite:
 		//
 		//
 		//
-		// val jsonTxt =
-		// 	"""
-		// {
-		// 	"Company name" : "Microsoft Corporation",
-		// 	"Ticker"  : "MSFT",
-		// 	"Active"  : true,
-		// 	"Price"   : 30.66,
-		// 	"Shares outstanding" : 8.38e9,
-		// 	"Related companies" : [ "HPQ", "IBM", "YHOO", "DELL", "GOOG" ]
-		// }
-		// """
 		//
 		// def labelLaw[A](p: Parser[A], inputs: SGen[String]): Prop =
 		// 	forAll(inputs ** Gen.string):
