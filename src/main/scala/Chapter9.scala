@@ -1,9 +1,15 @@
 object Chapter9 extends App:
-	opaque type Parser[A] = State => Result[A]
-
 	case class State(input: String, pos: Int):
+		def toParse: String =
+			input.drop(pos)
+
 		def consumed(n: Int): State =
 			copy(pos = pos + n)
+
+		def toError: Errors =
+			val msg = s"Could not parse '${toParse.headOption.getOrElse("eof")}' at position $pos"
+
+			Errors(List((msg, this)))
 
 	case class Errors(stack: List[(String, State)]):
 		def push(msg: String, state: State): Errors =
@@ -18,30 +24,31 @@ object Chapter9 extends App:
 				case Success(a, _) => Right(a)
 				case Failure(e)    => Left(e)
 
+	opaque type Parser[A] = State => Result[A]
+
 	object Parser:
 		def succeed[A](a: A): Parser[A] =
 			(s: State) => Result.Success(a, s)
 
-		def char(c: Char): Parser[Char] =
-			string(c.toString).map(_.charAt(0))
+		def satisfy(s: State)(f: String => Option[String]): Result[String] =
+			f(s.toParse) match
+				case Some(a) =>
+					Result.Success(a, s.consumed(a.length))
+				case None =>
+					Result.Failure(s.toError)
 
 		def string(str: String): Parser[String] =
-			(s: State) =>
-				val toParse = s.input.drop(s.pos)
+			(s: State) => satisfy(s):
+				i => Some(str).filter(i.startsWith)
 
-				if toParse.startsWith(str) then
-					Result.Success(str, s.consumed(str.length))
-				else
-					Result.Failure(Errors(List((s"Could not parse '$str', found '${toParse.headOption.getOrElse("eof")}'", s))))
+		def char(c: Char): Parser[Char] =
+			string(c.toString).map(_.charAt(0))
 
 		import scala.util.matching.Regex
 
 		def regex(r: Regex): Parser[String] =
-			(s: State) => r.findPrefixOf(s.input.drop(s.pos)) match
-				case Some(a) =>
-					Result.Success(a, s.consumed(a.length))
-				case None =>
-					Result.Failure(Errors(List((s"Could not parse regex '$r'", s))))
+			(s: State) => satisfy(s):
+				i => r.findPrefixOf(i)
 
 		extension [A](self: Parser[A])
 			def run(input: String): Result[A] =
@@ -74,10 +81,12 @@ object Chapter9 extends App:
 				else
 					self.mapTwo(self.times(n - 1))(_ :: _)
 
+			def separator[B](sep: Parser[B]): Parser[List[A]] =
+				self.mapTwo((sep ~ self).zeroOrMore)(_ :: _)
+
 			def slice: Parser[String] =
 				(s: State) => self(s) match
-					case Result.Success(_, s) =>
-						Result.Success(s.input.substring(0, s.pos), s)
+					case Result.Success(_, ns) => Result.Success(ns.input.substring(s.pos, ns.pos), ns)
 					case Result.Failure(e) => Result.Failure(e)
 
 			@annotation.targetName("or")
@@ -89,6 +98,10 @@ object Chapter9 extends App:
 			@annotation.targetName("product")
 			def **[B](that: => Parser[B]): Parser[(A, B)] =
 				self.mapTwo(that)((_, _))
+
+			@annotation.targetName("ignore")
+			def ~[B](that: => Parser[B]): Parser[B] =
+				self.mapTwo(that)((_, b) => b)
 
 		given fromStringToParser: Conversion[String, Parser[String]] with
 			def apply(s: String): Parser[String] = Parser.string(s)
@@ -104,69 +117,49 @@ object Chapter9 extends App:
 	object JSON:
 		import Parser._
 
-		val whitespace: Parser[Char] =
-			char(' ') | char('\t') | char('\n') | char('\r')
+		val whitespace: Parser[String] =
+			regex("[\\u0020\\u000A\\u000D\\u0009]*".r).slice
 
 		val jnull: Parser[JSON] =
 			Parser.string("null").map(_ => JNull)
 
+		val jbool: Parser[JBool] =
+			(string("true") | string("false")).map(b => JBool(b.toBoolean))
+
 		val jnumber: Parser[JNumber] =
-			regex("[0-9]".r).oneOrMore.slice.map(n => JNumber(n.toDouble))
+			regex("[-+]?([0-9]*\\.)?[0-9]+([eE][-+]?[0-9]+)?".r).map(n => JNumber(n.toDouble))
 
 		val jstring: Parser[JString] =
 			for
-				_ <- char('"')
-				s <- (regex("[a-zA-Z]".r) | whitespace.slice).zeroOrMore.slice
+				_ <- whitespace ~ char('"')
+				s <- regex("[^\"]*".r).slice
 				_ <- char('"')
 			yield
 				JString(s)
 
-		val jbool: Parser[JBool] =
-			(string("true") | string("false")).map(b => JBool(b.toBoolean))
-
-		val jliteral: Parser[JSON] =
-			jnull | jnumber | jstring | jbool
-
-		val jkeyval: Parser[(String, JSON)] =
-			for
-				k <- jstring
-				_ <- whitespace
-				_ <- char(':')
-				_ <- whitespace
-				v <- jliteral | jarray | jobject
-				_ <- char(',')
-				_ <- whitespace
-			yield
-				(k.toString, v)
-
-		val jval: Parser[JSON] =
-			for
-				v <- jliteral | jarray | jobject
-				_ <- char(',')
-				_ <- whitespace
-			yield
-				v
-
 		val jarray: Parser[JArray] =
 			for
-				_ <- Parser.char('[')
-				_ <- whitespace
-				v <- jval.oneOrMore
-				_ <- whitespace
-				_ <- Parser.char(']')
+				_ <- whitespace ~ char('[')
+				a <- whitespace ~ json.separator(char(','))
+				_ <- whitespace ~ char(']')
 			yield
-				JArray(v.toIndexedSeq)
+				JArray(a.toIndexedSeq)
+
+		val keyval: Parser[(String, JSON)] =
+			for
+				k <- whitespace ~ jstring
+				_ <- whitespace ~ char(':')
+				v <- whitespace ~ json
+			yield
+				(k.get, v)
 
 		val jobject: Parser[JObject] =
 			for
-				_  <- whitespace
-				_  <- Parser.char('{')
-				_  <- whitespace
-				kv <- jkeyval.oneOrMore
-				_  <- whitespace
-				_  <- Parser.char('}')
+				_ <- whitespace ~ char('{')
+				o <- whitespace ~ keyval.separator(char(','))
+				_ <- whitespace ~ char('}')
 			yield
-				JObject(kv.toMap)
+				JObject(o.toMap)
 
-		def JSONParser: Parser[JSON] =
-			jliteral | jarray | jobject
+		def json: Parser[JSON] =
+			jnull | jnumber | jstring | jbool | jarray | jobject

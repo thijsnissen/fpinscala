@@ -620,7 +620,7 @@ class Test extends AnyFunSuite:
 		|}
 		""".stripMargin
 
-		println(JSON.JSONParser.run(jsonTxt))
+		pprint.log(JSON.json.run(jsonTxt).extract)
 
 		// import Chapter9.Parsers
 		//
