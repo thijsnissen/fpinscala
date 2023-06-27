@@ -1,5 +1,17 @@
+import Chapter9.Result.Failure
+
 object Chapter9 extends App:
+	opaque type Parser[A] = State => Result[A]
+
 	case class State(input: String, pos: Int):
+		lazy val line: Int =
+			input.slice(0, pos + 1).count(_ == '\n') + 1
+
+		lazy val col: Int =
+			input.slice(0, pos + 1).lastIndexOf('\n') match
+				case -1        => pos + 1
+				case lineStart => pos - lineStart
+
 		def toParse: String =
 			input.drop(pos)
 
@@ -7,7 +19,7 @@ object Chapter9 extends App:
 			copy(pos = pos + n)
 
 		def toError: Errors =
-			val msg = s"Could not parse '${toParse.headOption.getOrElse("eof")}' at position $pos"
+			val msg = s"Could not parse '${toParse.headOption.getOrElse("eof")}' at line $line, col $col"
 
 			Errors(List((msg, this)))
 
@@ -22,9 +34,14 @@ object Chapter9 extends App:
 		def extract: Either[Errors, A] =
 			this match
 				case Success(a, _) => Right(a)
-				case Failure(e)    => Left(e)
+				case Failure(e) => Left(e)
 
-	opaque type Parser[A] = State => Result[A]
+		override def toString: String =
+			this match
+				case Success(_, s) =>
+					s"${Console.GREEN}✔ Parsing successful: consumed ${s.pos} characters${Console.RESET}"
+				case Failure(e) =>
+					s"${Console.RED}✘ Parsing failed:\n  - ${e.stack.map(_._1).mkString("\n  - ")}${Console.RESET}"
 
 	object Parser:
 		def succeed[A](a: A): Parser[A] =
@@ -89,6 +106,11 @@ object Chapter9 extends App:
 					case Result.Success(_, ns) => Result.Success(ns.input.substring(s.pos, ns.pos), ns)
 					case Result.Failure(e) => Result.Failure(e)
 
+			def label(msg: String): Parser[A] =
+				(s: State) => self(s) match
+					case Result.Failure(e) => Result.Failure(e.push(msg, s))
+					case success => success
+
 			@annotation.targetName("or")
 			def |[B >: A](that: => Parser[B]): Parser[B] =
 				(s: State) => self(s) match
@@ -104,7 +126,7 @@ object Chapter9 extends App:
 				self.mapTwo(that)((_, b) => b)
 
 		given fromStringToParser: Conversion[String, Parser[String]] with
-			def apply(s: String): Parser[String] = Parser.string(s)
+			def apply(s: String): Parser[String] = string(s)
 
 	enum JSON:
 		case JNull
@@ -121,7 +143,7 @@ object Chapter9 extends App:
 			regex("[\\u0020\\u000A\\u000D\\u0009]*".r).slice
 
 		val jnull: Parser[JSON] =
-			Parser.string("null").map(_ => JNull)
+			string("null").map(_ => JNull)
 
 		val jbool: Parser[JBool] =
 			(string("true") | string("false")).map(b => JBool(b.toBoolean))

@@ -608,81 +608,61 @@ class Test extends AnyFunSuite:
 
 		import Chapter9.JSON
 
-		val jsonTxt =
-			"""
-		|{
-		|	"Company name" : "Microsoft Corporation",
-		|	"Ticker"  : "MSFT",
-		|	"Active"  : true,
-		|	"Price"   : 30.66,
-		|	"Shares outstanding" : 8.38e9,
-		|	"Related companies" : [ "HPQ", "IBM", "YHOO", "DELL", "GOOG" ]
-		|}
-		""".stripMargin
+		val jsonTxt = """
+			|{
+			|	"Company name" : "Microsoft Corporation",
+			|	"Ticker"  : "MSFT",
+			|	"Active"  : true,
+			|	"Price"   : 30.66,
+			|	"Shares outstanding" : 8.38e9,
+			|	"Related companies" : [ "HPQ", "IBM", "YHOO", "DELL", "GOOG" ]
+			|}""".stripMargin
 
-		pprint.log(JSON.json.run(jsonTxt).extract)
+		val malformedJson1 = """
+			|{
+			|	"Company name" ; "Microsoft Corporation"
+			|}""".stripMargin
 
-		// import Chapter9.Parsers
-		//
-		// assertResult(Right('x'))(run(Parsers.char('x'))('x'.toString))
-		// assertResult(Right("x"))(run(Parsers.string("x"))("x"))
-		// assertResult(Right("abra"))(run(Parsers.or(Parsers.string("abra"), Parsers.string("cadabra")))("abra"))
-		// assertResult(Right("cadabra"))(run(Parsers.or(Parsers.string("abra"), Parsers.string("cadabra")))("cadabra"))
-		// assertResult(Right(List("ab", "ab", "cad")))(run(listOfN(3, "ab" | "cad"))("ababcad"))
-		//
-		// val numA1: Parser[Int] = char('a').many.map(_.size)
-		// assertResult(Right(3))(numA1.run("aaa"))
-		// assertResult(Right(3))(numA1.run("aaba"))
-		//
-		// val numA2: Parser[Int] = char('a').many.slice.map(_.size)
-		//
-		// val numAB: Parser[Int] = char('a').many.slice.map(_.size) ** char('b').many.slice.map(_.size)
-		//
-		// assertResult(Right("test"))(succeed(a).run("Test"))
-		//
-    // assertResult(Right("aaba"))(run(slice('a'|'b').many))("aaba")
-		//
-		// // Exercise 9.2
-		// (a ** b) ** c map (unbiasL) == a ** (b ** c) map (unbiasR)
-		//
-		// val f = many
-		// a.map(f) ** b.map(f) == (a ** b) map { case (a, b) => (f(a), g(b)) }
-		//
-		// // Exercise 9.6
-		// for {
-		// 	digit <- "[0-9]+".r
-		// 	val n = digit.toInt
-		// 	// we really should catch exceptions thrown by toInt // and convert to parse failure
-		// 	_ <- listOfN(n, char('a'))
-		// } yield n
-		//
-		//
-		// object Laws:
-		//
-		// 	import Chapter8.Gen._
-		// 	import Chapter8.Prop._
-		//
-		// 	def equal[A](p1: Parser[A], p2: Parser[A])(in: Gen[String]): Prop =
-		// 		forAll(in)((s: String) => p1.run(s) == p2.run(s))
-		//
-		// 	def mapLaw[A](p: Parser[A])(in: Gen[String]): Prop =
-		// 		equal(p, p.map(identity))(in)
-		//
-		// 	def unbiasL[A, B, C](p: ((A, B), C)): (A, B, C) = (p._1._1, p._1._2, p._2)
-		//
-		// 	def unbiasR[A, B, C](p: (A, (B, C))): (A, B, C) = (p._1, p._2._1, p._2._2)
-		//
-		//
-		//
-		//
-		// def labelLaw[A](p: Parser[A], inputs: SGen[String]): Prop =
-		// 	forAll(inputs ** Gen.string):
-		// 		case (input, msg) =>
-		// 			run(label(msg)(p))(input) match
-		// 				case Left(e) => errorMessage(e) == msg
-		// 				case _ => true
+		val malformedJson2 ="""
+			|[
+			|	[ "HPQ", "IBM",
+			|	"YHOO", "DELL" ++
+			|	"GOOG"
+			|	]
+			|]""".stripMargin
 
-		assertResult(true)(true)
+		val timelyJson =
+			"""{
+				|  "github": "github",
+				|  "team":   "#team",
+				|  "name":   "name",
+				|  "status": "active",
+				|  "credit": {
+				|    "Mon": 0,
+				|    "Tue": 1,
+				|    "Wed": 2,
+				|    "Thu": 3,
+				|    "Fri": 4,
+				|    "Sat": 5,
+				|    "Sun": 6
+				|  },
+				|  "debit": {
+				|    "Mon": 0,
+				|    "Tue": 1,
+				|    "Wed": 2,
+				|    "Thu": 3,
+				|    "Fri": 4,
+				|    "Sat": 5,
+				|    "Sun": 6
+				|  },
+				|  "fee": "3000/month"
+				|}
+				|""".stripMargin
+
+		println(JSON.json.run(jsonTxt))
+		println(JSON.json.run(malformedJson1))
+		println(JSON.json.run(malformedJson2))
+		println(JSON.json.run(timelyJson))
 
 	test("TypeClasses"):
 		import TypeClasses._
