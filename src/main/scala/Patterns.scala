@@ -64,7 +64,7 @@ object Patterns extends App:
 			extension[A] (self: List[A])
 				def map[B](f: A => B): List[B] =
 					self match
-						case Cons(h, t) => Cons(f(h), t.map(f))
+						case Cons(h, t) => Cons(f(h), t |@| f)
 						case Nil        => Nil
 
 		given Applicative[List] with
@@ -79,22 +79,22 @@ object Patterns extends App:
 
 		given Monad[List] with
 			extension[A] (self: List[A])
-				def flatMap[B: Monoid](f: A => List[B]): List[B] =
+				def flatMap[B](f: A => List[B]): List[B] =
 					self match
-						case Cons(h, t) => f(h) |@| (t >>= f)
+						case Cons(h, t) => f(h) |<>| (t >>= f)
 						case Nil        => Nil
 
 		given Foldable[List] with
 			extension [A](self: List[A])
 				def foldMap[B: Monoid](f: A => B): B =
 					self match
-						case Cons(h, t) => f(h) |@| t.foldMap(f)
+						case Cons(h, t) => f(h) |<>| t.foldMap(f)
 						case Nil        => Nil
 
 				@annotation.tailrec
 				def foldRight[B: Monoid](z: B)(f: A => B): B =
 					self match
-						case Cons(h, t) => t.foldRight(z |@| f(h))(f)
+						case Cons(h, t) => t.foldRight(z |<>| f(h))(f)
 						case Nil        => z
 
 		given listMonoid[A]: Monoid[List[A]] =
@@ -105,5 +105,5 @@ object Patterns extends App:
 				extension (self: List[A])
 					def append(that: List[A]): List[A] =
 						self match
-							case Cons(h, t) => Cons(h, t |@| that)
+							case Cons(h, t) => Cons(h, t |<>| that)
 							case Nil => that
