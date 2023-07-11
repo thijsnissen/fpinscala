@@ -5,7 +5,7 @@ object Patterns extends App:
 		def append(l: A)(r: A): A
 
 		extension (self: A)
-			@annotation.targetName("append")
+			@annotation.targetName("appendInfix")
 			def |<>|(that: A): A =
 				append(self)(that)
 
@@ -13,7 +13,7 @@ object Patterns extends App:
 		def map[A, B](f: A => B)(fa: F[A]): F[B]
 
 		extension [A](self: F[A])
-			@annotation.targetName("map")
+			@annotation.targetName("mapInfix")
 			def |@|[B](f: A => B): F[B] =
 				map(f)(self)
 
@@ -23,7 +23,7 @@ object Patterns extends App:
 		def apply[A, B](ff: F[A => B])(fa: F[A]): F[B]
 
 		extension [A](self: F[A])
-			@annotation.targetName("apply")
+			@annotation.targetName("applyInfix")
 			def |*|[B](that: F[A => B]): F[B] =
 				apply(that)(self)
 
@@ -37,11 +37,10 @@ object Patterns extends App:
 		def flatMap[A, B](fa: F[A])(f: A => F[B]): F[B]
 
 		extension[A](self: F[A])
-			@annotation.targetName("flatMap")
+			@annotation.targetName("flatMapInfix")
 			def >>=[B](f: A => F[B]): F[B] =
 				flatMap(self)(f)
 
-	// Folable is an interface for folding operations on a Monoid.
 	trait Foldable[F[_]]:
 		extension [A](self: F[A])
 			def foldMap[B](f: A => B)(using Monoid[B]): B
@@ -60,36 +59,39 @@ object Patterns extends App:
 		case Cons(head: A, tail: List[A])
 
 	object List:
+		def apply[A](as: A*): List[A] =
+			if as.isEmpty then
+				Nil
+			else
+				Cons(as.head, apply(as.tail*))
+
 		given Functor[List] with
-			extension[A] (self: List[A])
-				def map[B](f: A => B): List[B] =
-					self match
-						case Cons(h, t) => Cons(f(h), t |@| f)
-						case Nil        => Nil
+			def map[A, B](f: A => B)(fa: List[A]): List[B] =
+				fa match
+					case Cons(h, t) => Cons(f(h), t |@| f)
+					case Nil        => Nil
 
 		given Applicative[List] with
 			def pure[A](a: A): List[A] =
 				Cons(a, Nil)
 
-			extension[A] (self: List[A])
-				def apply[B](that: List[A => B]): List[B] =
-					(self, that) match
-						case (Cons(sh, st), Cons(th, tt)) => Cons(th(sh), st |*| tt)
-						case (_, _)                       => Nil
+			def apply[A, B](ff: List[A => B])(fa: List[A]): List[B] =
+				(fa, ff) match
+					case (Cons(fah, fat), Cons(ffh, fft)) => Cons(ffh(fah), fat |*| fft)
+					case (_, _)                       => Nil
 
 		given Monad[List] with
-			extension[A] (self: List[A])
-				def flatMap[B](f: A => List[B]): List[B] =
-					self match
-						case Cons(h, t) => f(h) |<>| (t >>= f)
-						case Nil        => Nil
+			def flatMap[A, B](fa: List[A])(f: A => List[B]): List[B] =
+				fa match
+					case Cons(h, t) => f(h) |<>| (t >>= f)
+					case Nil        => Nil
 
 		given Foldable[List] with
 			extension [A](self: List[A])
-				def foldMap[B: Monoid](f: A => B): B =
+				def foldMap[B](f: A => B)(using mb: Monoid[B]): B =
 					self match
 						case Cons(h, t) => f(h) |<>| t.foldMap(f)
-						case Nil        => Nil
+						case Nil        => mb.empty
 
 				@annotation.tailrec
 				def foldRight[B: Monoid](z: B)(f: A => B): B =
@@ -97,13 +99,19 @@ object Patterns extends App:
 						case Cons(h, t) => t.foldRight(z |<>| f(h))(f)
 						case Nil        => z
 
+		given traversable: Traversable[List] with
+			extension[A] (self: List[A])
+				def traverse[B, F[_]](f: A => F[B])(using af: Applicative[F]): F[List[B]] =
+					self match
+						case Cons(h, t) => f(h).mapTwo(t.traverse(f))(Cons(_, _))
+						case Nil        => af.pure(Nil)
+
 		given listMonoid[A]: Monoid[List[A]] =
 			new Monoid[List[A]]:
 				def empty: List[A] =
 					Nil
 
-				extension (self: List[A])
-					def append(that: List[A]): List[A] =
-						self match
-							case Cons(h, t) => Cons(h, t |<>| that)
-							case Nil => that
+				def append(l: List[A])(r: List[A]): List[A] =
+					l match
+						case Cons(h, t) => Cons(h, t |<>| r)
+						case Nil => r

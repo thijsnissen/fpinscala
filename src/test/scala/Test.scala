@@ -664,6 +664,20 @@ class Test extends AnyFunSuite:
 		println(JSON.json.run(malformedJson2))
 		println(JSON.json.run(timelyJson))
 
+	test("Patterns"):
+		import Patterns.*
+		import Patterns.List.*
+
+		assertResult(Cons(2,Cons(3,Cons(4,Cons(6,Nil)))))(List(1, 2, 3, 5) >>= (a => List(a + 1)))
+
+		assertResult(Cons(2,Cons(3,Cons(4,Cons(6,Nil)))))(List(1, 2, 3, 5).foldMap(a => List(a + 1)))
+
+		assertResult(Cons(2,Cons(3,Cons(4,Cons(6,Nil)))))(List(1, 2, 3, 5).foldRight(List())(a => List(a + 1)))
+
+		assertResult(Cons(Cons(2,Cons(3,Cons(4,Cons(6,Nil)))),Nil))(List(1, 2, 3, 5).traverse(a => List(a + 1)))
+
+		assertResult(Cons(Cons(1,Cons(3,Cons(5,Nil))),Nil))(List.traversable.sequence(List(List(1, 2), List(3, 4), List(5))))
+
 	test("TypeClasses"):
 		import TypeClasses._
 		import TypeClasses.Adder._
