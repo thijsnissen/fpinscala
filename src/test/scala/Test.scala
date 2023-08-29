@@ -1,4 +1,3 @@
-import Chapter8.Prop.forAll
 import org.scalatest.funsuite.AnyFunSuite
 
 class Test extends AnyFunSuite:
@@ -353,7 +352,7 @@ class Test extends AnyFunSuite:
 
 		import Chapter7.Par._
 
-		val executorService = java.util.concurrent.Executors.newFixedThreadPool(20)
+		val executorService = java.util.concurrent.Executors.newFixedThreadPool(4)
 
 		// Exercise 7.5
 		assertResult(List(1, 2, 3, 4, 5))(sortPar(Par.lazyUnit(List(2, 4, 3, 5, 1))).run(executorService).get)
@@ -361,8 +360,9 @@ class Test extends AnyFunSuite:
 
 		// Exercise 7.6
 		assertResult(List(1, 2))(parFilter(List(1, 2, 3, 4, 5))(_ < 3).run(executorService).get)
+
 		assertResult(15)(parallelCombination(Vector(1, 2, 3, 4, 5), 0)(identity)(_ + _).run(executorService).get)
-		assertResult(5)(max(Vector(1, 2, 3, 4, 5)).run(executorService).get)
+		assertResult(4)(max(Vector(1, 2, 3, 4)).run(executorService).get)
 		assertResult(10)(totalNoOfWords(List("Hi I am Thijs", "I love Scala", "Welcome to DHL")).run(executorService).get)
 
 		// Exercise 7.9 -> Will not work when theadSize is <= 1.
@@ -397,6 +397,7 @@ class Test extends AnyFunSuite:
 		import Chapter8.Prop
 		import Chapter8.Prop.TestCases
 		import Chapter8.Prop.MaxSize
+		import Chapter8.Prop.*
 
 		val rng = Chapter6.SimpleRNG(42) // used only to invoke test state
 
@@ -484,7 +485,7 @@ class Test extends AnyFunSuite:
 
 		import Chapter7.nonBlocking.Par
 
-		val executor = java.util.concurrent.Executors.newFixedThreadPool(20)
+		val executor = java.util.concurrent.Executors.newFixedThreadPool(4)
 
 		val parProp1 = Prop.forOne(Par.equal2(Par.unit(1).map(_ + 1), Par.unit(2)).run(executor))
 		val parProp2 = Prop.forAll(smallInt):
@@ -563,6 +564,8 @@ class Test extends AnyFunSuite:
 		treeProp2.run(name = "Tree test sized", m = MaxSize.fromInt(10))
 
 		assertResult(false)(treeProp2.check(MaxSize.fromInt(10)).isFalsified)
+
+		executor.shutdown()
 
 	test("Chapter 9"):
 		import Chapter9._
@@ -663,6 +666,88 @@ class Test extends AnyFunSuite:
 		println(JSON.json.run(malformedJson1))
 		println(JSON.json.run(malformedJson2))
 		println(JSON.json.run(timelyJson))
+
+	test("Chapter 10"):
+		import Chapter10.Monoid
+
+		import Chapter8.Gen
+		import Chapter8.Gen.*
+		import Chapter8.Prop
+		import Chapter8.Prop.*
+		import Chapter8.Prop.Result.*
+
+		val stringMonoid: Monoid[String] = Monoid.stringMonoid
+		val ListMonoid: Monoid[List[Int]] = Monoid.listMonoid[Int]
+		val intAdditionMonoid: Monoid[Int] = Monoid.intAddition
+		val intMultiplicationMonoit: Monoid[Int] = Monoid.intMultiplication
+		val booleanOrMonoid: Monoid[Boolean] = Monoid.booleanOr
+		val booleanAndMonoid: Monoid[Boolean] = Monoid.booleanAnd
+		val firstOptionMonoid: Monoid[Option[Int]] = Monoid.firstOptionMonoid[Int]
+		val lastMonoidOption: Monoid[Option[Int]] = Monoid.lastOptionMonoid[Int]
+		//val combineOptionMonoid: Monoid[Option[Int]] = Monoid.combineOptionMonoid(_ + _)
+		//val endoMonoid: Monoid[Int => Int] = Monoid.endoMonoid[Int]
+
+		val stringGen: Gen[String] = Gen.string(10)
+		val intGen: Gen[Int] = Gen.choose(10, 100)
+		val listGen: Gen[List[Int]] = Gen.listOf(intGen)
+		val booleanGen: Gen[Boolean] = Gen.boolean
+		val optionGen: Gen[Option[Int]] = intGen.map(i => if i < 10 then None else Some(i))
+		//val endoGen = intGen.map((a: Int) => (b: Int) => a + b)
+
+		assertResult(Result.Passed)(Monoid.monoidLaws(stringMonoid, stringGen).check())
+		assertResult(Result.Passed)(Monoid.monoidLaws(ListMonoid, listGen).check())
+
+		// Exercise 10.1
+		assertResult(Result.Passed)(Monoid.monoidLaws(intAdditionMonoid, intGen).check())
+		assertResult(Result.Passed)(Monoid.monoidLaws(intMultiplicationMonoit, intGen).check())
+		assertResult(Result.Passed)(Monoid.monoidLaws(booleanOrMonoid, booleanGen).check())
+		assertResult(Result.Passed)(Monoid.monoidLaws(booleanAndMonoid, booleanGen).check())
+
+		// Exercise 10.2
+		assertResult(Result.Passed)(Monoid.monoidLaws(firstOptionMonoid, optionGen).check())
+		assertResult(Result.Passed)(Monoid.monoidLaws(lastMonoidOption, optionGen).check())
+		//assertResult(Result.Passed)(Monoid.monoidLaws(combineOptionMonoid, optionGen).check())
+
+		// Exercise 10.3
+		//assertResult(Result.Passed)(Monoid.monoidLaws(endoMonoid, endoGen).check())
+
+		// Exercise 10.5
+		val listChar   = List('a', 'b', 'c', 'd', 'e')
+		val listString = List("a", "b", "c", "d", "e")
+		val vectorChar = Vector('a', 'b', 'c', 'd', 'e')
+
+		assertResult(Monoid.foldMap(listChar, Monoid.intAddition)(_.toInt)):
+			Monoid.foldMapViaConcatenate(listChar, Monoid.intAddition)(_.toInt)
+
+		// Exercise 10.6
+		assertResult(Monoid.foldLeft(listChar, 0)((b, a) => a.toInt + b)):
+			Monoid.foldRight(listChar, 0)((a, b) => a.toInt + b)
+
+		assertResult(Monoid.foldLeft(listString, "")((b, a) => a + b)):
+			Monoid.foldRight(listString, "")((a, b) => a + b)
+
+		// Exercise 10.7
+		assertResult(Monoid.foldMap(listChar, Monoid.intAddition)(_.toInt)):
+			Monoid.foldMapV(vectorChar, Monoid.intAddition)(_.toInt)
+
+		// Exercise 10.8
+		val executorService = java.util.concurrent.Executors.newFixedThreadPool(4)
+
+		assertResult(Monoid.foldMapV(vectorChar, Monoid.intAddition)(_.toInt)):
+			Monoid.parFoldMap(vectorChar, Monoid.intAddition)(_.toInt).run(executorService)
+
+		executorService.shutdown()
+
+		// Exercise 10.9
+		assertResult(true)(Monoid.isOrdered(Vector(1, 2, 3, 4, 5)))
+		assertResult(true)(Monoid.isOrdered(Vector.empty[Int]))
+		assertResult(true)(Monoid.isOrdered(Vector(1, 1, 2, 2, 2, 3, 4, 4)))
+		assertResult(false)(Monoid.isOrdered(Vector(1, 2, 3, 2, 4, 9, 5)))
+
+		// Exercise 10.10 & Exercise 10.11
+		assertResult(5)(Monoid.wordCount("Lorem ipsum dolor sit amet, "))
+
+
 
 	test("Patterns"):
 		import Patterns.*

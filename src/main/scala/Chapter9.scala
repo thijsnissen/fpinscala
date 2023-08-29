@@ -1,5 +1,3 @@
-import Chapter9.Result.Failure
-
 object Chapter9 extends App:
 	opaque type Parser[A] = State => Result[A]
 

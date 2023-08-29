@@ -67,7 +67,7 @@ object Chapter7 extends App:
 		def fork[A](a: => Par[A]): Par[A] =
 			es => es.submit:
 				new Callable[A]:
-					def call: A = a(es).get
+					def call: A = a(es).get(5, TimeUnit.SECONDS)
 
 		// Exercise 7.4
 		def asyncF[A, B](f: A => B): A => Par[B] =
@@ -90,12 +90,12 @@ object Chapter7 extends App:
 
 		def sequence[A](ps: List[Par[A]]): Par[List[A]] =
 			ps.foldRight(unit(List.empty[A])):
-				(p, acc) => p.mapTwo(acc)(_ :: _)
+				(p, acc) => p.mapTwoTimeouts(acc)(_ :: _)
 
 		// This implementation forks the recursive step off to a new logical thread
 		def sequenceRecursive[A](ps: List[Par[A]]): Par[List[A]] =
 			ps match
-				case h :: t => h.mapTwo(fork(sequenceRecursive(t)))(_ :: _)
+				case h :: t => h.mapTwoTimeouts(sequenceRecursive(t))(_ :: _)
 				case Nil    => unit(Nil)
 
 		def parFilter[A](as: List[A])(f: A => Boolean): Par[List[A]] =
@@ -112,8 +112,8 @@ object Chapter7 extends App:
 				else
 					val (l, r) = is.splitAt(is.length / 2)
 
-					fork(parallelCombination(l, init)(g)(f))
-						.mapTwo(fork(parallelCombination(r, init)(g)(f)))(f)
+					parallelCombination(l, init)(g)(f)
+						.mapTwoTimeouts(parallelCombination(r, init)(g)(f))(f)
 
 		def max(ints: IndexedSeq[Int]): Par[Int] =
 			parallelCombination(ints, 0)(identity)(_ max _)
@@ -181,7 +181,7 @@ object Chapter7 extends App:
 			def run(s: ExecutorService): Future[A] = a(s)
 
 			def map[B](f: A => B): Par[B] =
-				a.mapTwo(unit(()))((a, _) => f(a))
+				a.mapTwoTimeouts(unit(()))((a, _) => f(a))
 
 			def mapTwo[B, C](b: Par[B])(f: (A, B) => C): Par[C] =
 				(es: ExecutorService) =>
@@ -257,6 +257,16 @@ object Chapter7 extends App:
 			def parMap[A, B](ps: List[A])(f: A => B): Par[List[B]] =
 				fork(sequence(ps.map(asyncF(f))))
 
+			def parMap[A, B](as: IndexedSeq[A])(f: A => B): Par[IndexedSeq[B]] =
+				sequenceBalanced(as.map(asyncF(f)))
+
+			def sequenceBalanced[A](as: IndexedSeq[Par[A]]): Par[IndexedSeq[A]] = fork:
+				if as.isEmpty then unit(Vector())
+				else if as.length == 1 then map(as.head)(a => Vector(a))
+				else
+					val (l, r) = as.splitAt(as.length / 2)
+					sequenceBalanced(l).mapTwo(sequenceBalanced(r))(_ ++ _)
+
 			def sequence[A](ps: List[Par[A]]): Par[List[A]] =
 				ps.foldRight(unit(List.empty[A])):
 					(p, acc) => p.mapTwo(acc)(_ :: _)
@@ -291,6 +301,9 @@ object Chapter7 extends App:
 
 						p(es)(a => combiner ! Left(a))
 						p2(es)(b => combiner ! Right(b))
+
+				def flatMap[B](f: A => Par[B]): Par[B] =
+					fork(es => cb => p(es)(a => f(a)(es)(cb)))
 
 	import java.util.concurrent._
 	import java.util.concurrent.atomic.AtomicInteger
