@@ -8,6 +8,11 @@ object Chapter10 extends App:
 			def combine(a1: String, a2: String): String = a1 + a2
 			def zero: String = ""
 
+		val charMonoid: Monoid[Char] = new Monoid[Char]:
+			def combine(a1: Char, a2: Char): Char = (a1 + a2).toChar
+
+			def zero: Char = 0.toChar
+
 		def listMonoid[A]: Monoid[List[A]] = new Monoid[List[A]]:
 			def combine(a1: List[A], a2: List[A]): List[A] = a1 ++ a2
 			def zero: List[A] = Nil
@@ -178,25 +183,90 @@ object Chapter10 extends App:
 				case WordCount.Stub(s)       => unstub(s)
 				case WordCount.Part(x, y, z) => unstub(x) + y + unstub(z)
 
-		trait Foldable[F[_]]:
-			def foldRight[A, B](as: F[A], z: B)(f: (A, B) => B): B =
-				foldMap(as, endoMonoid[B])(f.curried)(z)
+		object Foldable:
+			trait Foldable[F[_]]:
+				def foldMap[A, B](as: F[A], m: Monoid[B])(f: A => B): B =
+					foldLeft(as, m.zero)((b, a) => m.combine(f(a), b))
 
-			def foldLeft[A, B](as: F[A], z: B)(f: (B, A) => B): B =
-				???
+				def foldRight[A, B](as: F[A], z: B)(f: (A, B) => B): B =
+					foldMap(as, endoMonoid[B])(f.curried)(z)
 
-			def foldMap[A, B](as: F[A], m: Monoid[B])(f: A => B): B =
-				???
+				def foldLeft[A, B](as: F[A], z: B)(f: (B, A) => B): B =
+					foldMap(as, endoMonoid[B])((a: A) => (b: B) => f(b, a))(z)
 
-			def concat[A](as: F[A], m: Monoid[A]): A =
-				foldLeft(as, m.zero)(m.combine)
+				def concat[A](as: F[A], m: Monoid[A]): A =
+					foldLeft(as, m.zero)(m.combine)
 
-		//// Exercise 10.12
-		//import Chapter3.List
-		//
-		//given Foldable[List]
-		//
-		//// Exercise 10.13
-		//import Chapter3.Tree
-		//
-		//given Foldable[Tree] with
+				// Exercise 10.15
+				def toList[A](fa: F[A]): List[A] =
+					foldRight(fa, List.empty[A])(_ :: _)
+
+			// Exercise 10.12
+			import Chapter3.List
+			import Chapter3.List.Nil
+			import Chapter3.List.Cons
+
+			given listFoldable: Foldable[List] with
+				override def foldMap[A, B](as: List[A], m: Monoid[B])(f: A => B): B =
+					as match
+						case Cons(h, t) => m.combine(f(h), foldMap(t, m)(f))
+						case Nil        => m.zero
+
+			// Exercise 10.13
+			import Chapter3.Tree
+			import Chapter3.Tree.Leaf
+			import Chapter3.Tree.Branch
+
+			given treeFoldable: Foldable[Tree] with
+				override def foldMap[A, B](as: Tree[A], m: Monoid[B])(f: A => B): B =
+					as match
+						case Branch(l, r) => m.combine(foldMap(l, m)(f), foldMap(r, m)(f))
+						case Leaf(a)      => f(a)
+
+			// Exercise 10.14
+			import Chapter4.Option
+			import Chapter4.Option.Some
+			import Chapter4.Option.None
+
+			given optionFoldable: Foldable[Option] with
+				override def foldMap[A, B](as: Option[A], m: Monoid[B])(f: A => B): B =
+					as match
+						case Some(a) => f(a)
+						case None    => m.zero
+
+		end Foldable
+
+		// Exercise 10.16
+		def productMonoid[A, B](a: Monoid[A], b: Monoid[B]): Monoid[(A, B)] =
+			new Monoid[(A, B)]:
+				def combine(ab1: (A, B), ab2: (A, B)): (A, B) =
+					(a.combine(ab1._1, ab2._1), b.combine(ab1._2, ab2._2))
+
+				def zero: (A, B) = (a.zero, b.zero)
+
+		def mapMergeMonoid[K, V](mv: Monoid[V]): Monoid[Map[K, V]] =
+			new Monoid[Map[K, V]]:
+				def combine(m1: Map[K, V], m2: Map[K, V]): Map[K, V] =
+					(m1.keySet ++ m2.keySet).foldLeft(zero):
+						(acc, k) =>
+							val v = mv.combine(m1.getOrElse(k, mv.zero), m2.getOrElse(k, mv.zero))
+
+							acc.updated(k, v)
+
+				def zero: Map[K, V] = Map.empty[K, V]
+
+		// Exercise 10.17
+		def fuctionMonoid[A, B](b: Monoid[B]): Monoid[A => B] =
+			new Monoid[A => B]:
+				def combine(a1: A => B, a2: A => B): A => B =
+					(a: A) => b.combine(a1(a), a2(a))
+
+				def zero: A => B =
+					(a: A) => b.zero
+
+		// Exercise 10.18
+		def bag[A](as: Chapter3.List[A]): Map[A, Int] =
+			Foldable
+				.listFoldable
+				.foldMap(as, mapMergeMonoid(intAddition)):
+					a => Map(a -> 1)

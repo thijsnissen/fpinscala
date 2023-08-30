@@ -677,6 +677,7 @@ class Test extends AnyFunSuite:
 		import Chapter8.Prop.Result.*
 
 		val stringMonoid: Monoid[String] = Monoid.stringMonoid
+		val charMonoid: Monoid[Char] = Monoid.charMonoid
 		val ListMonoid: Monoid[List[Int]] = Monoid.listMonoid[Int]
 		val intAdditionMonoid: Monoid[Int] = Monoid.intAddition
 		val intMultiplicationMonoit: Monoid[Int] = Monoid.intMultiplication
@@ -747,7 +748,119 @@ class Test extends AnyFunSuite:
 		// Exercise 10.10 & Exercise 10.11
 		assertResult(5)(Monoid.wordCount("Lorem ipsum dolor sit amet, "))
 
+		// Exercise 10.12
+		import Monoid.Foldable.listFoldable
 
+		val list1 = Chapter3.List(1, 2, 3, 4, 5)
+		val list2 = List(1, 2, 3, 4, 5)
+
+		assertResult("12345")(listFoldable.foldMap(list1, Monoid.stringMonoid)(_.toString))
+		assertResult("12345")(listFoldable.foldLeft(list1, "")((b, a) => a.toString + b))
+		assertResult("12345")(listFoldable.foldRight(list1, "")((a, b) => a.toString + b))
+		assertResult(15)(listFoldable.concat(list1, Monoid.intAddition))
+		assertResult(list2)(listFoldable.toList(list1))
+
+		// Exercise 10.13
+		import Chapter3.Tree
+		import Chapter3.Tree.Leaf
+		import Chapter3.Tree.Branch
+		import Monoid.Foldable.treeFoldable
+
+		val tree =
+			Branch(
+				Branch(
+					Branch(
+						Leaf(1), Leaf(2)
+					),
+					Leaf(3)
+				),
+				Branch(
+					Leaf(4), Leaf(5)
+				)
+			)
+
+		assertResult("12345")(treeFoldable.foldMap(tree, Monoid.stringMonoid)(_.toString))
+		assertResult("12345")(treeFoldable.foldLeft(tree, "")((b, a) => a.toString + b))
+		assertResult("12345")(treeFoldable.foldRight(tree, "")((a, b) => a.toString + b))
+		assertResult(15)(treeFoldable.concat(tree, Monoid.intAddition))
+		assertResult(list2)(treeFoldable.toList(tree))
+
+		// Exercise 10.14
+		import Chapter4.Option
+		import Chapter4.Option.Some
+		import Chapter4.Option.None
+		import Monoid.Foldable.optionFoldable
+
+		val option1 = Some(10)
+		val option2 = None
+
+		assertResult("10")(optionFoldable.foldMap(option1, Monoid.stringMonoid)(_.toString))
+		assertResult("")(optionFoldable.foldMap(option2, Monoid.stringMonoid)(_.toString))
+		assertResult("10")(optionFoldable.foldLeft(option1, "")((b, a) => a.toString + b))
+		assertResult("")(optionFoldable.foldLeft(option2, "")((b, a) => a.toString + b))
+		assertResult("10")(optionFoldable.foldRight(option1, "")((a, b) => a.toString + b))
+		assertResult("")(optionFoldable.foldRight(option2, "")((a, b) => a.toString + b))
+		assertResult(10)(optionFoldable.concat(option1, Monoid.intAddition))
+		assertResult(0)(optionFoldable.concat(option2, Monoid.intAddition))
+		assertResult(List(10))(optionFoldable.toList(option1))
+		assertResult(Nil)(optionFoldable.toList(option2))
+
+		// Exercise 10.16
+		val productMonoid: Monoid[(String, Int)] =
+			Monoid.productMonoid(stringMonoid, intAdditionMonoid)
+
+		val stringIntGen: Gen[(String, Int)] =
+			for
+				s <- stringGen
+				i <- intGen
+			yield
+				(s, i)
+
+		assertResult(Result.Passed)(Monoid.monoidLaws(productMonoid, stringIntGen).check())
+
+		val map1: Map[Int, String] = Map(1 -> "Thijs", 2 -> "Nissen")
+		val map2: Map[Int, String] = Map(3 -> "Koen", 4 -> "Van Den", 5 -> "Bergh")
+		val map3: Map[Int, String] = Map(1 -> "Thijs", 2 -> "Nissen", 3 -> "Koen", 4 -> "Van Den", 5 -> "Bergh")
+
+		val map4: Map[Char, Map[Int, String]] = Map('a' -> Map(1 -> "A", 2 -> "a"), 'b' -> Map(1 -> "B", 2 -> "b"))
+		val map5: Map[Char, Map[Int, String]] = Map('c' -> Map(1 -> "C", 2 -> "c"))
+		val map6: Map[Char, Map[Int, String]] = Map('a' -> Map(1 -> "A", 2 -> "a"), 'b' -> Map(1 -> "B", 2 -> "b"), 'c' -> Map(1 -> "C", 2 -> "c"))
+
+		val mapMonoid: Monoid[Map[Char, Map[Int, String]]] =
+			Monoid.mapMergeMonoid:
+				Monoid.mapMergeMonoid(stringMonoid)
+
+		assertResult(map3)(Monoid.mapMergeMonoid(stringMonoid).combine(map1, map2))
+		assertResult(map6)(mapMonoid.combine(map4, map5))
+
+		// Exercise 10.17
+		val fnMonoid: Monoid[Int => String] =
+			Monoid.fuctionMonoid(stringMonoid)
+
+		val fn1: Int => String =
+			(i: Int) => i.toString
+
+		val fn2: Int => String =
+			(i: Int) => s"Age: ${i.toString}"
+
+		assertResult(fn1(10) + fn2(10))(fnMonoid.combine(fn1, fn2)(10))
+
+		// Identity
+		assertResult(fn1(10))(fnMonoid.combine(fnMonoid.zero, fn1)(10))
+		assertResult(fn1(10))(fnMonoid.combine(fn1, fnMonoid.zero)(10))
+
+		// Associativity
+		assertResult(fnMonoid.combine(fn1, fnMonoid.combine(fn2, fnMonoid.zero))(10)):
+			fnMonoid.combine(fnMonoid.combine(fn1, fn2), fnMonoid.zero)(10)
+
+		// Exercise 10.18
+		assertResult(Map("a" -> 2, "rose" -> 2, "is" -> 1)):
+			Monoid.bag(Chapter3.List("a", "rose", "is", "a", "rose"))
+
+		val intProductMonoid: Monoid[(Int, Int)] =
+			Monoid.productMonoid(intAdditionMonoid, intAdditionMonoid)
+
+		assertResult((4, 10))(listFoldable.foldMap(Chapter3.List(1, 2, 3, 4), intProductMonoid)(i => (1, i)))
 
 	test("Patterns"):
 		import Patterns.*
