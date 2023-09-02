@@ -59,6 +59,9 @@ object Chapter8 extends App:
 		def choose(start: Int, stopExclusive: Int): Gen[Int] =
 			State(Rand.nonNegativeInt).map(n => start + n % (stopExclusive - start))
 
+		def choose(start: Double, stopExclusive: Double): Gen[Double] =
+			State(Rand.double).map(d => start + d * (stopExclusive - start))
+
 		def string(size: Int): Gen[String] =
 			(1 to size).foldLeft(unit("")):
 				case (acc, _) => acc.mapTwo(char)(_ + _.toString)

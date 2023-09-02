@@ -862,6 +862,143 @@ class Test extends AnyFunSuite:
 
 		assertResult((4, 10))(listFoldable.foldMap(Chapter3.List(1, 2, 3, 4), intProductMonoid)(i => (1, i)))
 
+	test("Chapter 11"):
+		import Chapter11.*
+
+		// Functor
+		assertResult(List(2, 3, 4))(listFunctor.map(List(1, 2, 3))(_ + 1))
+		assertResult((List(1, 2), List("a", "b")))(listFunctor.distribute(List((1, "a"), (2, "b"))))
+		assertResult(List(Right(1), Right(2), Right(3)))(listFunctor.codistribute(Right(List(1, 2, 3))))
+
+		// Monad
+		assertResult(List("Thijs"))(listMonad.unit("Thijs"))
+		assertResult(List('T', 'h', 'i', 'j', 's'))(listMonad.flatMap(List("Thijs"))(s => s.toList))
+		assertResult(List(2, 3, 4))(listMonad.map(List(1, 2, 3))(_ + 1))
+		assertResult(List(4, 5, 5, 6))(listMonad.mapTwo(List(1, 2), List(3, 4))(_ + _))
+
+		assertResult(Some("Thijs"))(optionMonad.unit("Thijs"))
+		assertResult(Some('T'))(optionMonad.flatMap(Some("Thijs"))(s => s.lift(0)))
+		assertResult(Some(11))(optionMonad.map(Some(10))(_ + 1))
+		assertResult(Some(10))(optionMonad.mapTwo(Some(5), Some(2))(_ * _))
+
+		// Exercise 11.3
+		val list1 = List('a', 'b', 'c', 'd')
+		val list2 = List(97, 98, 99, 100)
+		val list3 = List(Some(97), Some(98), Some(99), Some(100))
+		assertResult(Some(list2))(optionMonad.sequence(list3))
+		assertResult(Some(list1))(optionMonad.traverse(list2)((a: Int) => Some(a.toChar)))
+
+		// Exercise: 11.4
+		assertResult(Some(List.fill(10)("test123")))(optionMonad.replicateM(10, Some("test123")))
+		assertResult(Some(List.fill(10)("test123")))(optionMonad.replicateMRec(10, Some("test123")))
+		assertResult(Some(List.fill(10)("test123")))(optionMonad.replicateMRec2(10, Some("test123")))
+
+		val listr = List(
+			('a', 97), ('a', 98), ('a', 99), ('a', 100),
+			('b', 97), ('b', 98), ('b', 99), ('b', 100),
+			('c', 97), ('c', 98), ('c', 99), ('c', 100),
+			('d', 97), ('d', 98), ('d', 99), ('d', 100)
+		)
+
+		assertResult(listr)(listMonad.product(list1, list2))
+
+		// Exercise 11.6
+		val list4 = List(97, 98, 99)
+			assertResult(Some(list4)):
+				optionMonad.filterM(list2)((i: Int) => if i < 100 then Some(true) else Some(false))
+
+		// Exercise 11.7 & Monad Law of Associativity
+		val f: Int => List[Int] = (a: Int) => List(a + 1)
+		val g: Int => List[Char] = (b: Int) => List((b + 97).toChar)
+		val h: Char => List[String] = (c: Char) => List(c.toString)
+
+		val compose1: Int => List[String] = listMonad.compose(listMonad.compose(f, g), h)
+		val compose2: Int => List[String] = listMonad.compose(f, listMonad.compose(g, h))
+
+		assertResult(listMonad.flatMap(List(1, 2, 3))(compose1)):
+			listMonad.flatMap(List(1, 2, 3))(compose2)
+
+		// Exercise 11.8
+		assertResult(List('T', 'h', 'i', 'j', 's')):
+			listMonad.flatMapViaCompose(List("Thijs"))(s => s.toList)
+
+		assertResult(Some('T')):
+			optionMonad.flatMapViaCompose(Some("Thijs"))(s => s.lift(0))
+
+		// Exercise 11.9
+		val compose3: Int => List[String] =
+			(a: Int) => listMonad.flatMap(f(a))((b: Int) => listMonad.flatMap(g(b))(h))
+
+		assertResult(listMonad.flatMap(List(1, 2, 3))(compose1)):
+			listMonad.flatMap(List(1, 2, 3))(compose3)
+
+		// Monadlaw of (left and right) Identity
+		val compose4: Int => List[Int] = listMonad.compose(f, listMonad.unit)
+		val compose5: Int => List[Int] = listMonad.compose(listMonad.unit, f)
+		val compose6: Int => List[Int] = (a: Int) => listMonad.flatMap(f(a))(listMonad.unit)
+
+		assertResult(listMonad.flatMap(List(1, 2, 3))(f)):
+			listMonad.flatMap(List(1, 2, 3))(compose4)
+
+		assertResult(listMonad.flatMap(List(1, 2, 3))(f)):
+			listMonad.flatMap(List(1, 2, 3))(compose5)
+
+		// Exercise 11.10 & 11.11
+		assertResult(listMonad.flatMap(List(1, 2, 3))(f)):
+			listMonad.flatMap(List(1, 2, 3))(compose6)
+
+		// Exercise 11.12
+		val join = List(List(1, 2), List(3, 4))
+		assertResult(List(1, 2, 3, 4))(listMonad.join(join))
+
+		// Exercise 11.13
+		assertResult(List('T', 'h', 'i', 'j', 's')):
+			listMonad.flatMapViaJoin(List("Thijs"))(s => s.toList)
+
+		assertResult(Some('T')):
+			optionMonad.flatMapViaJoin(Some("Thijs"))(s => s.lift(0))
+
+		val compose7: Int => List[String] = listMonad.composeViaJoin(listMonad.compose(f, g), h)
+		val compose8: Int => List[String] = listMonad.composeViaJoin(f, listMonad.compose(g, h))
+
+		assertResult(listMonad.flatMap(List(1, 2, 3))(compose7)):
+			listMonad.flatMap(List(1, 2, 3))(compose8)
+
+		// The Identity Monad
+		assertResult(Id("Hello, world!"))(Id("Hello, ").flatMap(v => Id(v + "world!")))
+
+		// The State Monad
+		import Chapter6.State
+
+		val fromIntState: IntState[String] =
+			Chapter6.State.apply:
+				(s: Int) => (s.toString, s + 1)
+
+		val intState: IntState[String] =
+			stateMonad[Int].unit("Thijs")
+
+		// Exercise 11.2
+		assertResult(stateMonad[Int].unit("Test").run(123)):
+			intStateMonad.unit("Test").run(123)
+		assertResult(("7 added!", 8)):
+			fromIntState.flatMap(v => intStateMonad.unit(v + " added!")).run(7)
+		assertResult(("7Thijs", 8)):
+			fromIntState.flatMap(v => intState.map(v + _)).run(7)
+		assertResult(("7 added!", 8))(fromIntState.map(_ + " added!").run(7))
+
+		// Exercise 11.18
+		assertResult(("7Thijs", 8))(fromIntState.mapTwo(intState)(_ + _).run(7))
+		assertResult((List("1", "2", "3"), 4))(stateMonad[Int].replicateM(3, fromIntState).run(1))
+		assertResult((List("1", "Thijs"), 2))(stateMonad[Int].sequence(List(fromIntState, intState)).run(1))
+
+		// Exercise 11.19
+		assertResult(State.get.flatMap(State.set).run(0))(State.unit(()).run(0))
+		//assertResult(State.set(10).flatMap(_ => State.get).run(0))(State.unit(10).run(0))
+
+		// Example on p. 202
+		val list5 = List((0, 'a'), (1, 'b'), (2, 'c'), (3, 'd'))
+		assertResult(list5)(zipWithIndex(list1))
+
 	test("Patterns"):
 		import Patterns.*
 		import Patterns.List.*
