@@ -198,7 +198,7 @@ object Chapter6 extends App:
 		def set[S](s: S): State[S, Unit] =
 			_ => ((), s)
 
-		def unit[S, A](a: A): State[S, A] =
+		def unit[S, A](a: => A): State[S, A] =
 			s => (a, s)
 
 		def sequence[A, S](fs: List[State[S, A]]): State[S, List[A]] =
