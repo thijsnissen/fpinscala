@@ -36,3 +36,24 @@ object Monads:
 					val (ba, bs) = f(aa)(as)
 
 					(ba, bs)
+
+	// The Reader Monad
+	opaque type Reader[R, A] =
+		R => A
+
+	object Reader:
+		def apply[R, A](f: R => A): Reader[R, A] =
+			f
+
+		def ask[R]: Reader[R, R] = r => r
+
+		extension[R, A] (self: Reader[R, A])
+			def run(r: R): A =
+				self(r)
+
+		given readerMonad[R]: Monad[[x] =>> Reader[R, x]] with
+			def unit[A](a: => A): Reader[R, A] =
+				(_: R) => a
+
+			def flatMap[A, B](fa: Reader[R, A])(f: A => Reader[R, B]): Reader[R, B] =
+				(r: R) => f(fa.run(r)).run(r)

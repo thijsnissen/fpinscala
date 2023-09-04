@@ -220,6 +220,8 @@ object Chapter11 extends App:
 
 	// Exercise 11.20
 	// Reader transforms an R into an A. It functions as a sort of read only state.
+	// The Reader Monad is used for representing computations that depend on some
+	// shared immutable environment or configuration.
 	// FlatMap passes r along to the outer and the inner reader.
 	opaque type Reader[R, A] =
 		R => A

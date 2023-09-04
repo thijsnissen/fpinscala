@@ -21,26 +21,17 @@ object Part3Summary extends App:
 	trait Functor[F[_]]:
 		def map[A, B](fa: F[A])(f: A => B): F[B]
 
-	// Monad
-	trait Monad[F[_]] extends Functor[F]:
+	// Applicative
+	trait Applicative[F[_]] extends Functor[F]:
+		def apply[A, B](fab: F[A => B])(fa: F[A]): F[B] =
+			mapTwo(fab, fa)((a, b) => a(b))
+
 		def unit[A](a: => A): F[A]
 
-		def flatMap[A, B](fa: F[A])(f: A => F[B]): F[B]
+		def mapTwo[A, B, C](fa: F[A], fb: F[B])(f: (A, B) => C): F[C]
 
 		def map[A, B](fa: F[A])(f: A => B): F[B] =
-			flatMap(fa)(a => unit(f(a)))
-
-		def mapTwo[A, B, C](fa: F[A], fb: F[B])(f: (A, B) => C): F[C] =
-			flatMap(fa)(a => map(fb)(b => f(a, b)))
-
-		def product[A, B](ma: F[A], mb: F[B]): F[(A, B)] =
-			mapTwo(ma, mb)((_, _))
-
-		def compose[A, B, C](f: A => F[B], g: B => F[C]): A => F[C] =
-			a => flatMap(f(a))(b => g(b))
-
-		def join[A](mma: F[F[A]]): F[A] =
-			flatMap(mma)(identity)
+			mapTwo(fa, unit(()))((a, _) => f(a))
 
 		def sequence[A](lma: List[F[A]]): F[List[A]] =
 			traverse(lma)(identity)
@@ -52,11 +43,30 @@ object Part3Summary extends App:
 		def replicateM[A](n: Int, ma: F[A]): F[List[A]] =
 			sequence(List.fill(n)(ma))
 
+		def product[A, B](ma: F[A], mb: F[B]): F[(A, B)] =
+			mapTwo(ma, mb)((_, _))
+
+	// Monad
+	trait Monad[F[_]] extends Applicative[F]:
+		def unit[A](a: => A): F[A]
+
+		def flatMap[A, B](fa: F[A])(f: A => F[B]): F[B]
+
+		def compose[A, B, C](f: A => F[B], g: B => F[C]): A => F[C] =
+			a => flatMap(f(a))(b => g(b))
+
+		def join[A](mma: F[F[A]]): F[A] =
+			flatMap(mma)(identity)
+
 		def filterM[A](ms: List[A])(f: A => F[Boolean]): F[List[A]] =
 			ms.foldRight(unit(List.empty[A])):
 				(a: A, acc: F[List[A]]) =>
 					flatMap(f(a))((b: Boolean) => if b then map(acc)(a :: _) else acc)
 
-	// Traversable
+		def mapTwo[A, B, C](fa: F[A], fb: F[B])(f: (A, B) => C): F[C] =
+			flatMap(fa)(a => map(fb)(b => f(a, b)))
 
-	// Applicative
+		override def map[A, B](fa: F[A])(f: A => B): F[B] =
+			flatMap(fa)(a => unit(f(a)))
+
+  // Traversable
