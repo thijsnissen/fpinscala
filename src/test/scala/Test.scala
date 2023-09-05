@@ -1078,6 +1078,74 @@ class Test extends AnyFunSuite:
 		assertResult(listR3)(listApplicative.mapThree(listI, listI, listI)(_ + _ + _))
 		assertResult(listR4)(listApplicative.mapFour(listI, listI, listI, listI)(_ + _ + _ + _))
 
+		// Example on p. 210
+		val parserInput1: String =
+			"""
+				|1/1/2010, 25
+				|2/1/2010, 28
+				|3/1/2010, 42
+				|""".stripMargin
+
+		val parserInput2: String =
+			"""
+				|# Temperature, Date
+				|25, 1/1/2010
+				|28, 2/1/2010
+				|42, 3/1/2010
+				|""".stripMargin
+
+		assertResult(rowsApl.run(parserInput1).extract)(rowsMon.run(parserInput2).extract)
+
+		// Exercise 12.4
+		val lla = LazyList.iterate(0)(_ + 1)
+		val llb = LazyList.iterate(0)(_ - 1)
+
+		// TODO: Is this the desired result?
+		assertResult(LazyList(List(0, 0)))(lazyListApplicative.sequence(List(lla, llb)))
+
+		// Example on p. 214
+		val e0 = WebForm("Thijs", java.time.LocalDate.parse("2023-09-05"), "0123456789")
+		val e1 = List("Name cannot be empty")
+		val e2 = List("Name cannot be empty", "Birthdate must be in the form yyyy-MM-dd")
+		val e3 = List("Name cannot be empty", "Birthdate must be in the form yyyy-MM-dd", "Phone number must be 10 digits")
+
+		assertResult(Validation.Valid(e0))(WebForm.validWebForm("Thijs", "2023-09-05", "0123456789"))
+		assertResult(Validation.Invalid(e1))(WebForm.validWebForm("", "2023-09-05", "0123456789"))
+		assertResult(Validation.Invalid(e2))(WebForm.validWebForm("", "09-05-2023", "0123456789"))
+		assertResult(Validation.Invalid(e3))(WebForm.validWebForm("", "09-05-2023", "123456789"))
+
+		// Example on p. 216
+		import listApplicative.*
+
+		// Structure preserving left & right Identity
+		assertResult(listI)(mapTwo(unit(()), listI)((_, a) => a))
+		assertResult(listI)(mapTwo(listI, unit(()))((a, _) => a))
+
+		// Associativity
+		assertResult(product(product(listR1, listR2), listR3)):
+			map(product(listR1, product(listR2, listR3)))(assoc)
+
+		// Naturality
+		val f: Int => Int = _ + 1
+		val g: Int => Int = _ - 1
+
+		assertResult(mapTwo(listR1, listR2)(productF(f, g))):
+			product(map(listR1)(f), map(listR2)(g))
+
+		// TODO: Exercise 12.7
+		// TODO: Exercise 12.8
+		// TODO: Exercise 12.9
+		// TODO: Exercise 12.10
+		// TODO: Exercise 12.11
+
+		// Exercise 12.12
+		val mapI = Map(1 -> List('a'), 2 -> List('b'), 3 -> List('c'), 4 -> List('d'), 5 -> List('e'))
+		val mapM = List(Map(1 -> 'a'), Map(2 -> 'b'), Map(3 -> 'c'), Map(4 -> 'd'), Map(5 -> 'e'))
+
+		assertResult(List(mapM))(listApplicative.sequenceMap(mapI))
+
+		// Exercise 12.13
+
 	test("Patterns"):
 		import Patterns.*
 		import Patterns.List.*

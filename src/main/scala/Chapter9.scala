@@ -59,6 +59,9 @@ object Chapter9 extends App:
 		def char(c: Char): Parser[Char] =
 			string(c.toString).map(_.charAt(0))
 
+		def whitespace: Parser[String] =
+			regex("[\\u0020\\u000A\\u000D\\u0009]*".r).slice
+
 		import scala.util.matching.Regex
 
 		def regex(r: Regex): Parser[String] =
@@ -136,9 +139,6 @@ object Chapter9 extends App:
 
 	object JSON:
 		import Parser._
-
-		val whitespace: Parser[String] =
-			regex("[\\u0020\\u000A\\u000D\\u0009]*".r).slice
 
 		val jnull: Parser[JSON] =
 			string("null").map(_ => JNull)

@@ -1,13 +1,14 @@
 object Patterns extends App:
-	trait Monoid[A]:
-		def empty: A
-
+	trait Semigroup[A]:
 		def append(l: A)(r: A): A
 
 		extension (self: A)
 			@annotation.targetName("appendInfix")
 			def |<>|(that: A): A =
 				append(self)(that)
+
+	trait Monoid[A] extends Semigroup[A]:
+		def empty: A
 
 	trait Functor[F[_]]:
 		def map[A, B](f: A => B)(fa: F[A]): F[B]

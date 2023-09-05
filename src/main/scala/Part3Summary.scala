@@ -1,8 +1,9 @@
 object Part3Summary extends App:
 	// Monoid
-	trait Monoid[A]:
+	trait Semigroup[A]:
 		def combine(a1: A, a2: A): A
 
+	trait Monoid[A] extends Semigroup[A]:
 		def zero: A
 
 	// Foldable
@@ -45,6 +46,20 @@ object Part3Summary extends App:
 
 		def product[A, B](ma: F[A], mb: F[B]): F[(A, B)] =
 			mapTwo(ma, mb)((_, _))
+
+		def mapThree[A, B, C, D](fa: F[A], fb: F[B], fc: F[C])(f: (A, B, C) => D): F[D] =
+			apply(apply(apply(unit(f.curried))(fa))(fb))(fc)
+
+		def mapFour[A, B, C, D, E](fa: F[A], fb: F[B], fc: F[C], fd: F[D])(f: (A, B, C, D) => E): F[E] =
+			apply(apply(apply(apply(unit(f.curried))(fa))(fb))(fc))(fd)
+
+		def assoc[A, B, C](p: (A, (B, C))): ((A, B), C) =
+			val (a, (b, c)) = p
+
+			((a, b), c)
+
+		def productF[I, O, I2, O2](f: I => O, g: I2 => O2): (I, I2) => (O, O2) =
+			(i, i2) => (f(i), g(i2))
 
 	// Monad
 	trait Monad[F[_]] extends Applicative[F]:
