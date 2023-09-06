@@ -19,12 +19,21 @@ object Monads:
 		S => (A, S)
 
 	object State:
-		extension[S, A](self: State[S, A])
-			def get: State[S, S] =
-				(s: S) => (s, s)
+		def get[S]: State[S, S] =
+			(s: S) => (s, s)
 
-			def set(s: => S): State[S, Unit] =
-				_ => ((), s)
+		def set[S](s: => S): State[S, Unit] =
+			_ => ((), s)
+
+		extension[S, A] (self: State[S, A])
+			def run(s: => S): (A, S) =
+				self(s)
+
+			def flatMap[B](f: A => State[S, B]): State[S, B] =
+				stateMonad.flatMap(self)(f)
+
+			def map[B](f: A => B): State[S, B] =
+				stateMonad.map(self)(f)
 
 		given stateMonad[S]: Monad[[x] =>> State[S, x]] with
 			def unit[A](a: => A): State[S, A] =

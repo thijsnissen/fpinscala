@@ -1,4 +1,4 @@
-object Patterns extends App:
+object SummerSchoolPatterns extends App:
 	trait Semigroup[A]:
 		def append(l: A)(r: A): A
 

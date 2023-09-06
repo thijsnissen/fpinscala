@@ -15,27 +15,29 @@ object Chapter11 extends App:
 			def map[A, B](fa: List[A])(f: A => B): List[B] =
 				fa.map(f)
 
-	trait Monad[F[_]] extends Functor[F]:
+	import Chapter12.Applicative
+
+	trait Monad[F[_]] extends Applicative[F]:
 		def unit[A](a: => A): F[A]
 
 		def flatMap[A, B](fa: F[A])(f: A => F[B]): F[B]
 
-		def map[A, B](fa: F[A])(f: A => B): F[B] =
+		override def map[A, B](fa: F[A])(f: A => B): F[B] =
 			flatMap(fa)(a => unit(f(a)))
 
 		def mapTwo[A, B, C](fa: F[A], fb: F[B])(f: (A, B) => C): F[C] =
 			flatMap(fa)(a => map(fb)(b => f(a, b)))
 
 		// Exercise 11.3
-		def sequence[A](lma: List[F[A]]): F[List[A]] =
+		override def sequence[A](lma: List[F[A]]): F[List[A]] =
 			traverse(lma)(identity)
 
-		def traverse[A, B](la: List[A])(f: A => F[B]): F[List[B]] =
+		override def traverse[A, B](la: List[A])(f: A => F[B]): F[List[B]] =
 			la.foldRight(unit(List.empty[B])):
 				(a, acc) => mapTwo(f(a), acc)(_ :: _)
 
 		// Exercise 11.4
-		def replicateM[A](n: Int, ma: F[A]): F[List[A]] =
+		override def replicateM[A](n: Int, ma: F[A]): F[List[A]] =
 			sequence(List.fill(n)(ma))
 
 		def replicateMRec[A](n: Int, ma: F[A]): F[List[A]] =
@@ -50,7 +52,7 @@ object Chapter11 extends App:
 			if n <= 0 then unit(Nil)
 			else mapTwo(ma, replicateMRec2(n - 1, ma))(_ :: _)
 
-		def product[A, B](ma: F[A], mb: F[B]): F[(A, B)] =
+		override def product[A, B](ma: F[A], mb: F[B]): F[(A, B)] =
 			mapTwo(ma, mb)((_, _))
 
 		// Exercise 11.6

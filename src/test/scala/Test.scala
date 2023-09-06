@@ -1,3 +1,4 @@
+import Chapter11.optionMonad
 import org.scalatest.funsuite.AnyFunSuite
 
 class Test extends AnyFunSuite:
@@ -1094,7 +1095,7 @@ class Test extends AnyFunSuite:
 				|42, 3/1/2010
 				|""".stripMargin
 
-		assertResult(rowsApl.run(parserInput1).extract)(rowsMon.run(parserInput2).extract)
+		assertResult(Parser.rowsApl.run(parserInput1).extract)(Parser.rowsMon.run(parserInput2).extract)
 
 		// Exercise 12.4
 		val lla = LazyList.iterate(0)(_ + 1)
@@ -1132,23 +1133,89 @@ class Test extends AnyFunSuite:
 		assertResult(mapTwo(listR1, listR2)(productF(f, g))):
 			product(map(listR1)(f), map(listR2)(g))
 
-		// TODO: Exercise 12.7
-		// TODO: Exercise 12.8
-		// TODO: Exercise 12.9
-		// TODO: Exercise 12.10
-		// TODO: Exercise 12.11
+		// Exercise 12.7
+		import Chapter11.listMonad
+
+		// Structure preserving left & right Identity
+		assertResult(listI)(listMonad.mapTwo(listMonad.unit(()), listI)((_, a) => a))
+		assertResult(listI)(listMonad.mapTwo(listI, listMonad.unit(()))((a, _) => a))
+
+		// Associativity
+		assertResult(product(product(listR1, listR2), listR3)):
+			listMonad.map(product(listR1, product(listR2, listR3)))(assoc)
+
+		// Naturality
+		assertResult(listMonad.mapTwo(listR1, listR2)(productF(f, g))):
+			product(listMonad.map(listR1)(f), listMonad.map(listR2)(g))
+
+		// Exercise 12.8
+		val p1 = (listApplicative.unit("Test"), lazyListApplicative.unit("Test"))
+		val p2 = listApplicative.product(using lazyListApplicative).unit("Test")
+		val p3 = listApplicative.product(using lazyListApplicative).mapTwo(p1, p2)(_ + _)
+		val p4 = (listApplicative.unit("TestTest"), lazyListApplicative.unit("TestTest"))
+
+		assertResult(p1)(p2)
+		assertResult(p4)(p3)
+
+		// Exercise 12.9
+		val c1 = List(LazyList("Test"))
+		val c2 = listApplicative.compose(using lazyListApplicative).unit("Test")
+		val c3 = listApplicative.compose(using lazyListApplicative).mapTwo(c1, c2)(_ + _)
+		val c4 = List(LazyList("TestTest"))
+
+		assertResult(c1)(c2)
+		assertResult(c3)(c4)
+
+    // Exercise 12.10
+		val composedApl = lazyListApplicative.compose(using listApplicative)
+
+		// Structure preserving left & right Identity
+		assertResult(LazyList(listI))(composedApl.mapTwo(composedApl.unit(()), LazyList(listI))((_, a) => a))
+		assertResult(LazyList(listI))(composedApl.mapTwo(LazyList(listI), composedApl.unit(()))((a, _) => a))
+
+		// Associativity
+		assertResult(composedApl.product(composedApl.product(LazyList(listR1), LazyList(listR2)), LazyList(listR3))):
+			composedApl.map(composedApl.product(LazyList(listR1), composedApl.product(LazyList(listR2), LazyList(listR3))))(composedApl.assoc)
+
+		// Naturality
+		assertResult(composedApl.mapTwo(LazyList(listR1), LazyList(listR2))(productF(f, g))):
+			composedApl.product(composedApl.map(LazyList(listR1))(f), composedApl.map(LazyList(listR2))(g))
 
 		// Exercise 12.12
 		val mapI = Map(1 -> List('a'), 2 -> List('b'), 3 -> List('c'), 4 -> List('d'), 5 -> List('e'))
-		val mapM = List(Map(1 -> 'a'), Map(2 -> 'b'), Map(3 -> 'c'), Map(4 -> 'd'), Map(5 -> 'e'))
+		val mapM = List(Map(1 -> 'a', 2 -> 'b', 3 -> 'c', 4 -> 'd', 5 -> 'e'))
 
-		assertResult(List(mapM))(listApplicative.sequenceMap(mapI))
+		assertResult(mapM)(listApplicative.sequenceMap(mapI))
 
 		// Exercise 12.13
+		import Tree.*
+
+		val listC: List[Char]      = List('a', 'b', 'c', 'd', 'e')
+		val mapC: Map[Int, Char]   = Map(1 -> 'a', 2 -> 'b', 3 -> 'c')
+		val mapS: Map[Int, String] = Map(1 -> "a", 2 -> "b", 3 -> "c")
+		val treeI: Tree[Int]       = Tree(1, List(Tree(2, Nil), Tree(3, Nil)))
+		val treeC: Tree[Char]      = Tree('a', List(Tree('b', Nil), Tree('c', Nil)))
+
+		assertResult(Some(listC))(Traverse.listTraverse.traverse(listI)(a => Some((a + 96).toChar))(using optionMonad))
+		assertResult(Some(mapS))(Traverse.mapTraverse.traverse(mapC)(a => Some(a.toString))(using optionMonad))
+		assertResult(List(Some('1'), Some('2'), Some('3')))(Traverse.optionTraverse.traverse(Some("123"))(_.toList)(using listMonad))
+		assertResult(Some(treeC))(Traverse.treeTraverse.traverse(treeI)(a => Some((a + 96).toChar))(using optionMonad))
+
+		// Exercise 12.14
+		assertResult(listI)(Traverse.listTraverse.map(listC)(_.toInt - 96))
+
+		// Exercise 12.16
+		val law1 = Traverse.treeTraverse.toList(Traverse.treeTraverse.reverse(treeI)) ++ Traverse.listTraverse.toList(Traverse.listTraverse.reverse(listI))
+		val law2 = Traverse.listTraverse.reverse(Traverse.listTraverse.toList(listI) ++ Traverse.treeTraverse.toList(treeI))
+
+		assertResult(law1)(law2)
+
+		// Exercise 12.17
+		assertResult(15)(Traverse.listTraverse.foldLeft(listI)(0)((a, i) => a + i))
 
 	test("Patterns"):
-		import Patterns.*
-		import Patterns.List.*
+		import SummerSchoolPatterns.*
+		import SummerSchoolPatterns.List.*
 
 		assertResult(Cons(2,Cons(3,Cons(4,Cons(6,Nil)))))(List(1, 2, 3, 5) >>= (a => List(a + 1)))
 
