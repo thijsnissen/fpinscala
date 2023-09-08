@@ -15,27 +15,29 @@ object Chapter11 extends App:
 			def map[A, B](fa: List[A])(f: A => B): List[B] =
 				fa.map(f)
 
-	trait Monad[F[_]] extends Functor[F]:
+	import Chapter12.Applicative
+
+	trait Monad[F[_]] extends Applicative[F]:
 		def unit[A](a: => A): F[A]
 
 		def flatMap[A, B](fa: F[A])(f: A => F[B]): F[B]
 
-		def map[A, B](fa: F[A])(f: A => B): F[B] =
+		override def map[A, B](fa: F[A])(f: A => B): F[B] =
 			flatMap(fa)(a => unit(f(a)))
 
 		def mapTwo[A, B, C](fa: F[A], fb: F[B])(f: (A, B) => C): F[C] =
 			flatMap(fa)(a => map(fb)(b => f(a, b)))
 
 		// Exercise 11.3
-		def sequence[A](lma: List[F[A]]): F[List[A]] =
+		override def sequence[A](lma: List[F[A]]): F[List[A]] =
 			traverse(lma)(identity)
 
-		def traverse[A, B](la: List[A])(f: A => F[B]): F[List[B]] =
+		override def traverse[A, B](la: List[A])(f: A => F[B]): F[List[B]] =
 			la.foldRight(unit(List.empty[B])):
 				(a, acc) => mapTwo(f(a), acc)(_ :: _)
 
 		// Exercise 11.4
-		def replicateM[A](n: Int, ma: F[A]): F[List[A]] =
+		override def replicateM[A](n: Int, ma: F[A]): F[List[A]] =
 			sequence(List.fill(n)(ma))
 
 		def replicateMRec[A](n: Int, ma: F[A]): F[List[A]] =
@@ -50,7 +52,7 @@ object Chapter11 extends App:
 			if n <= 0 then unit(Nil)
 			else mapTwo(ma, replicateMRec2(n - 1, ma))(_ :: _)
 
-		def product[A, B](ma: F[A], mb: F[B]): F[(A, B)] =
+		override def product[A, B](ma: F[A], mb: F[B]): F[(A, B)] =
 			mapTwo(ma, mb)((_, _))
 
 		// Exercise 11.6
@@ -98,6 +100,18 @@ object Chapter11 extends App:
 	// The monad itself decides how these values are are actually combined. I.e. List
 	// always produces Lists, whereas Option can either be Some or None, depending
 	// on the original input.
+
+	// For List, the replicateM function will generate a list of lists. It will
+	// contain all the lists of length n with elements selected from the input list.
+
+  // For Option, it will generate either Some or None based on whether the input
+	// is Some or None. The Some case will contain a list of length n that repeats
+	// the element in the input Option.
+
+	// The general meaning of replicateM is described well by the implementation
+	// sequence(List.fill(n)(ma)). It repeats the ma monadic value n times and
+	// gathers the results in a single value, where the monad F determines how
+	// values are actually combined.
 
 	// Exercise 11.9, see test.
 	// x.flatMap(f).flatMap(g) == x.flatMap(a => f(a).flatMap(g))
@@ -220,6 +234,8 @@ object Chapter11 extends App:
 
 	// Exercise 11.20
 	// Reader transforms an R into an A. It functions as a sort of read only state.
+	// The Reader Monad is used for representing computations that depend on some
+	// shared immutable environment or configuration.
 	// FlatMap passes r along to the outer and the inner reader.
 	opaque type Reader[R, A] =
 		R => A

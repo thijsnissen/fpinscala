@@ -1,5 +1,5 @@
 object Monads:
-	import Part3Summary.Monad
+	import Part3Summary.*
 
 	// The Identity Monad
 	opaque type Id[+A] = A
@@ -19,12 +19,21 @@ object Monads:
 		S => (A, S)
 
 	object State:
-		extension[S, A](self: State[S, A])
-			def get: State[S, S] =
-				(s: S) => (s, s)
+		def get[S]: State[S, S] =
+			(s: S) => (s, s)
 
-			def set(s: => S): State[S, Unit] =
-				_ => ((), s)
+		def set[S](s: => S): State[S, Unit] =
+			_ => ((), s)
+
+		extension[S, A] (self: State[S, A])
+			def run(s: => S): (A, S) =
+				self(s)
+
+			def flatMap[B](f: A => State[S, B]): State[S, B] =
+				stateMonad.flatMap(self)(f)
+
+			def map[B](f: A => B): State[S, B] =
+				stateMonad.map(self)(f)
 
 		given stateMonad[S]: Monad[[x] =>> State[S, x]] with
 			def unit[A](a: => A): State[S, A] =
@@ -36,3 +45,24 @@ object Monads:
 					val (ba, bs) = f(aa)(as)
 
 					(ba, bs)
+
+	// The Reader Monad
+	opaque type Reader[R, A] =
+		R => A
+
+	object Reader:
+		def apply[R, A](f: R => A): Reader[R, A] =
+			f
+
+		def ask[R]: Reader[R, R] = r => r
+
+		extension[R, A] (self: Reader[R, A])
+			def run(r: R): A =
+				self(r)
+
+		given readerMonad[R]: Monad[[x] =>> Reader[R, x]] with
+			def unit[A](a: => A): Reader[R, A] =
+				(_: R) => a
+
+			def flatMap[A, B](fa: Reader[R, A])(f: A => Reader[R, B]): Reader[R, B] =
+				(r: R) => f(fa.run(r)).run(r)
