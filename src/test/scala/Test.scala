@@ -1213,6 +1213,16 @@ class Test extends AnyFunSuite:
 		// Exercise 12.17
 		assertResult(15)(Traverse.listTraverse.foldLeft(listI)(0)((a, i) => a + i))
 
+		// Exercise 12.18
+		val fl = List(1, 2, 3)
+		val ff = (a: Int) => Some(a)
+		val fg = (a: Int) => List(a)
+
+		assertResult((Some(fl), List(fl)))(Traverse.listTraverse.fuse(fl)(ff, fg)(using optionMonad, listMonad))
+
+		// Exercise 12.20
+		assertResult(Some(List("Test")))(Monad.composeM(using optionMonad, listMonad, Traverse.listTraverse).unit("Test"))
+
 	test("Patterns"):
 		import SummerSchoolPatterns.*
 		import SummerSchoolPatterns.List.*

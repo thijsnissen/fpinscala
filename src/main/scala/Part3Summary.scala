@@ -12,10 +12,11 @@ object Part3Summary extends App:
 
 	// Foldable
 	trait Foldable[F[_]]:
-		def foldRight[A, B](as: F[A], z: B)(f: (A, B) => B): B
-
 		def foldLeft[A, B](as: F[A], z: B)(f: (B, A) => B): B
-
+		
+		def foldRight[A, B](as: F[A], z: B)(f: (A, B) => B): B =
+			foldLeft(as, z)((b, a) => f(a, b))
+		
 		def foldMap[A, B](as: F[A], m: Monoid[B])(f: A => B): B =
 			foldLeft(as, m.zero)((b, a) => m.combine(f(a), b))
 

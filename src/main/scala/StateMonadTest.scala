@@ -6,15 +6,22 @@ object StateMonadTest extends App:
 	val myList: List[Char] =
 		List('a', 'b', 'c', 'd', 'e')
 
-	def zipWithIndex[A](la: List[A]) =
-		val result =
-			(a: A) =>
-				for
-					i <- get[Int]
-					_ <- set(i + 1)
-				yield
-					List((i, a))
+	def zipWithIndex[A](la: List[A]): List[(A, Int)] =
+		val (result: List[(A, Int)], _) =
+			la
+				.foldLeft(stateMonad.unit(List.empty[(A, Int)])):
+					(acc: State[Int, List[(A, Int)]], a: A) =>
+						for
+							l	<- acc
+							s <- get[Int]
+							_ <- set(s + 1)
+						yield
+							(a, s) :: l
+				.run(0)
 
-		la.flatMap(result)
+		result.reverse
 
-	pprint.log(zipWithIndex(myList))
+	assert(myList.zipWithIndex == zipWithIndex(myList))
+
+	pprint.pprintln(myList.zipWithIndex)
+	pprint.pprintln(zipWithIndex(myList))

@@ -1,5 +1,5 @@
 object Monads:
-	import Part3Summary.Monad
+	import Part3Summary.*
 
 	// The Identity Monad
 	opaque type Id[+A] = A

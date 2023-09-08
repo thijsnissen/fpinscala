@@ -258,66 +258,79 @@ object Chapter12 extends App:
 	//			???
 
 	trait Traverse[F[_]] extends Functor[F] with Foldable[F]:
-		def traverse[G[_], A, B](fa: F[A])(f: A => G[B])(using Applicative[G]): G[F[B]] =
-			sequence(map(fa)(f))
+		self =>
+			def traverse[G[_], A, B](fa: F[A])(f: A => G[B])(using Applicative[G]): G[F[B]] =
+				sequence(map(fa)(f))
 
-		def sequence[G[_], A](fga: F[G[A]])(using Applicative[G]): G[F[A]] =
-			traverse(fga)(identity)
+			def sequence[G[_], A](fga: F[G[A]])(using Applicative[G]): G[F[A]] =
+				traverse(fga)(identity)
 
-		//type Const[M, _] = M
-		//
-		//object Const:
-		//	given monoidApplicative[M](using m: Monoid[M]): Applicative[[x] =>> Const[M, x]] with
-		//		def mapTwo[A, B, C](fa: M, fb: M)(f: (A, B) => C): M =
-		//			m.combine(fa, fb)
-		//
-		//		def unit[A](a: => A): M = m.zero
-		//
-		//def foldMap[A, M](as: F[A])(f: A => M)(using m: Monoid[M]): M =
-		//	traverse[[x] =>> Const[M, x], A, Nothing](as)(f)(using Const.monoidApplicative(m))
+			type Const[M, _] = M
 
-		type Id[+A] = A
+			object Const:
+				given monoidApplicative[M](using m: Monoid[M]): Applicative[[x] =>> Const[M, x]] with
+					def mapTwo[A, B, C](fa: M, fb: M)(f: (A, B) => C): M =
+						m.combine(fa, fb)
 
-		object Id:
-			given idMonad: Monad[Id] with
-				def unit[A](a: => A) = a
-				def flatMap[A, B](a: A)(f: A => B): B = f(a)
+					def unit[A](a: => A): M = m.zero
 
-		def map[A, B](fa: F[A])(f: A => B): F[B] =
-			traverse[Id, A, B](fa)(f)(using Id.idMonad)
+			def foldMap[A, M](as: F[A])(f: A => M)(using Monoid[M]): M =
+				traverse[[x] =>> Const[M, x], A, Nothing](as)(f)(using Const.monoidApplicative)
 
-		import Chapter6.State
-		import Chapter6.State.*
-		import Chapter11.stateMonad
+			type Id[+A] = A
 
-		def traverseS[S, A, B](fa: F[A])(f: A => State[S, B]): State[S, F[B]] =
-			traverse(fa)(f)(using stateMonad)
+			object Id:
+				given idMonad: Monad[Id] with
+					def unit[A](a: => A) = a
+					def flatMap[A, B](a: A)(f: A => B): B = f(a)
 
-		def mapAccum[S, A, B](fa: F[A], s: S)(f: (A, S) => (B, S)): (F[B], S) =
-			val res: State[S, F[B]] =
-				traverseS(fa): (a: A) =>
-					for
-						s1 <- get[S]
-						(b, s2) = f(a, s1)
-						_ <- set(s2)
-					yield b
+			def map[A, B](fa: F[A])(f: A => B): F[B] =
+				traverse[Id, A, B](fa)(f)(using Id.idMonad)
 
-			res.run(s)
+			import Chapter6.State
+			import Chapter6.State.*
+			import Chapter11.stateMonad
 
-		override def toList[A](fa: F[A]): List[A] =
-			mapAccum(fa, List.empty[A])((a, s) => ((), a :: s))._2.reverse
+			def traverseS[S, A, B](fa: F[A])(f: A => State[S, B]): State[S, F[B]] =
+				traverse(fa)(f)(using stateMonad)
 
-		def zipWithIndex[A](fa: F[A]): F[(A, Int)] =
-			mapAccum(fa, 0)((a, s) => ((a, s), s + 1))._1
+			def mapAccum[S, A, B](fa: F[A], s: S)(f: (A, S) => (B, S)): (F[B], S) =
+				val res: State[S, F[B]] =
+					traverseS(fa): (a: A) =>
+						for
+							s1 <- get[S]
+							(b, s2) = f(a, s1)
+							_ <- set(s2)
+						yield b
 
-		// Exercise 12.16
-		def reverse[A](fa: F[A]): F[A] =
-			mapAccum(fa, toList(fa).reverse)((_, as) => (as.head, as.tail))._1
+				res.run(s)
 
-	// Exercise 12.17
-		@annotation.targetName("foldLeftViaMapAccum")
-		def foldLeft[A, B](fa: F[A])(z: B)(f: (B, A) => B): B =
-			mapAccum(fa, z)((a, b) => ((), f(b, a)))._2
+			override def toList[A](fa: F[A]): List[A] =
+				mapAccum(fa, List.empty[A])((a, s) => ((), a :: s))._2.reverse
+
+			def zipWithIndex[A](fa: F[A]): F[(A, Int)] =
+				mapAccum(fa, 0)((a, s) => ((a, s), s + 1))._1
+
+			// Exercise 12.16
+			def reverse[A](fa: F[A]): F[A] =
+				mapAccum(fa, toList(fa).reverse)((_, as) => (as.head, as.tail))._1
+
+			// Exercise 12.17
+			@annotation.targetName("foldLeftViaMapAccum")
+			def foldLeft[A, B](fa: F[A])(z: B)(f: (B, A) => B): B =
+				mapAccum(fa, z)((a, b) => ((), f(b, a)))._2
+
+			// Exercise 12.18
+			def fuse[G[_], H[_], A, B](fa: F[A])(f: A => G[B], g: A => H[B])
+				(using ag: Applicative[G], ah: Applicative[H])
+			: (G[F[B]], H[F[B]]) =
+				traverse[[x] =>> (G[x], H[x]), A, B](fa)((a: A) => (f(a), g(a)))(using ag.product(using ah))
+
+			// Exercise 12.19 TODO: Get this compiling
+			//def compose[G[_]](using tg: Traverse[G]): Traverse[[x] =>> F[G[x]]] =
+			//	new Traverse[[x] =>> F[G[x]]]:
+			//		override def traverse[H[_], A, B](fa: F[G[A]])(f: A => H[B])(using Applicative[H]): G[F[G[B]]] =
+			//			self.traverse(fa)((ga: G[A]) => tg.traverse(ga)(f))
 
 	// Exercise 12.13
 	case class Tree[+A](head: A, tail: List[Tree[A]])
@@ -355,4 +368,13 @@ object Chapter12 extends App:
 	// Traverse is tructure preserving so it can implement Functor. Some Foldable
 	// instances are not structure preserving and that is why in general Foldable
 	// cannot implement Functor.
+
+	object Monad:
+		// Exercise 12.20
+		def composeM[G[_], H[_]](using mg: Monad[G], mh: Monad[H], th: Traverse[H]): Monad[[x] =>> G[H[x]]] =
+			new Monad[[x] =>> G[H[x]]]:
+				def unit[A](a: => A): G[H[A]] = mg.unit(mh.unit(a))
+
+				override def flatMap[A, B](mna: G[H[A]])(f: A => G[H[B]]): G[H[B]] =
+					mg.flatMap(mna)(na => mg.map(th.traverse(na)(f))(mh.join))
 
