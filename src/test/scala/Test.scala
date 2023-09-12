@@ -1223,7 +1223,15 @@ class Test extends AnyFunSuite:
 		// Exercise 12.20
 		assertResult(Some(List("Test")))(Monad.composeM(using optionMonad, listMonad, Traverse.listTraverse).unit("Test"))
 
-	test("Patterns"):
+	test("Chapter 13"):
+		// Exercise 13.1
+		assertResult(???)(???)
+
+		// Exercise 13.2
+
+		// Exercise 13.3
+
+	test("SummerSchoolPatterns"):
 		import SummerSchoolPatterns.*
 		import SummerSchoolPatterns.List.*
 
