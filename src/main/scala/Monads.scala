@@ -1,5 +1,6 @@
 object Monads:
 	import Part3Summary.*
+	import Part3Summary.Monad.*
 
 	// The Identity Monad
 	opaque type Id[+A] = A
@@ -28,12 +29,6 @@ object Monads:
 		extension[S, A] (self: State[S, A])
 			def run(s: => S): (A, S) =
 				self(s)
-
-			def flatMap[B](f: A => State[S, B]): State[S, B] =
-				stateMonad.flatMap(self)(f)
-
-			def map[B](f: A => B): State[S, B] =
-				stateMonad.map(self)(f)
 
 		given stateMonad[S]: Monad[[x] =>> State[S, x]] with
 			def unit[A](a: => A): State[S, A] =
@@ -82,18 +77,17 @@ object Monads:
 			def unsafeRun: A =
 				self()
 
-			def map[B](f: A => B): IO[B] =
-				ioMonad.map[A, B](self)(f)
-
-			def flatMap[B](f: A => IO[B]): IO[B] =
-				ioMonad.flatMap[A, B](self)(f)
-
 		given ioMonad: Monad[IO] with
 			def unit[A](a: => A): IO[A] =
 				() => a
 
 			def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B] =
 				f(fa.unsafeRun)
+
+	// The IO Monad via Free
+	import NonBlockingPar.Par
+
+	opaque type IOFree[A] = Free[Par, A]
 
 	// The Free Monad
 	enum Free[F[_], A]:
@@ -107,22 +101,22 @@ object Monads:
 	object Free:
 		type TailRec[A] = Free[Function0, A]
 
-		@annotation.tailrec
-		def step[F[_], A](a: Free[F, A]): Free[F, A] =
-			a match
-				case Chain(Chain(x, f), g) => step(x.flatMap(a => f(a).flatMap(g)))
-				case Chain(Return(x), f)   => step(f(x))
-				case _                     => a
-
 		extension [A](self: TailRec[A])
-			def runTrampoline: A =
+			def runTailRec: A =
 				self match
 					case Return(a)   => a
 					case Suspend(s)  => s()
 					case Chain(x, f) => x match
-						case Return(a)   => f(a).runTrampoline
-						case Suspend(s)  => f(s()).runTrampoline
-						case Chain(y, g) => y.flatMap(a => g(a).flatMap(f)).runTrampoline
+						case Return(a)   => f(a).runTailRec
+						case Suspend(s)  => f(s()).runTailRec
+						case Chain(y, g) => y.flatMap(a => g(a).flatMap(f)).runTailRec
+
+		@annotation.tailrec
+		def step[F[_], A](a: Free[F, A]): Free[F, A] =
+			a match
+				case Chain(Chain(x, f), g) => step(x.flatMap(a => f(a).flatMap(g)))
+				case Chain(Return(x), f) => step(f(x))
+				case _ => a
 
 		extension [F[_], A](self: Free[F, A])
 			def run(using F: Monad[F]): F[A] =
@@ -140,12 +134,6 @@ object Monads:
 					case Chain(x, f) => x match
 						case Suspend(s) => G.flatMap(t(s))(a => f(a).runFree(t))
 						case _          => sys.error("Unreacheable case since step takes care of the other cases.")
-
-			def map[B](f: A => B): Free[F, B] =
-				freeMonad.map[A, B](self)(f)
-
-			def flatMap[B](f: A => Free[F, B]): Free[F, B] =
-				freeMonad.flatMap[A, B](self)(f)
 
 		given freeMonad[F[_]]: Monad[[x] =>> Free[F, x]] with
 			def unit[A](a: => A): Free[F, A] =

@@ -1224,12 +1224,17 @@ class Test extends AnyFunSuite:
 		assertResult(Some(List("Test")))(Monad.composeM(using optionMonad, listMonad, Traverse.listTraverse).unit("Test"))
 
 	test("Chapter 13"):
-		// Exercise 13.1
-		assertResult(???)(???)
+		import Chapter13.*
 
-		// Exercise 13.2
+		val testData1   = IO5.TestData(List("Thijs", "Koen"), List.empty[String])
+		val testResult1 = IO5.TestData(List("Koen"), List("What's your name?", "Hello, Thijs!"))
 
-		// Exercise 13.3
+		assertResult(testResult1)(IO5.greetState.run(testData1)._2)
+
+		val testData2 = IO5.TestData(List("Thijs", "Koen"), List.empty[String])
+		val testResult2 = IO5.TestData(List("Koen"),List("Type something:", "THIJS"))
+
+		assertResult(testResult2)(IO6.program.ConsoleState.run.run(testData2)._2)
 
 	test("SummerSchoolPatterns"):
 		import SummerSchoolPatterns.*

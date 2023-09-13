@@ -1,5 +1,6 @@
 object Chapter13 extends App:
-	import Part3Summary.Monad
+	import Part3Summary.*
+	import Part3Summary.Monad.*
 
 	object IO1:
 		case class Player(name: String, score: Int)
@@ -47,12 +48,6 @@ object Chapter13 extends App:
 			extension[A] (self: IO[A])
 				def unsafeRun: A =
 					self()
-
-				def map[B](f: A => B): IO[B] =
-					ioMonad.map[A, B](self)(f)
-
-				def flatMap[B](f: A => IO[B]): IO[B] =
-					ioMonad.flatMap[A, B](self)(f)
 
 				@annotation.targetName("combine")
 				def ++(that: IO[A]): IO[A] =
@@ -162,12 +157,6 @@ object Chapter13 extends App:
 							case Suspend(s) => G.flatMap(t(s))(a => f(a).runFree(t))
 							case _ => sys.error("Unreacheable case since step takes care of the other cases.")
 
-				def map[B](f: A => B): Free[F, B] =
-					freeMonad.map[A, B](self)(f)
-
-				def flatMap[B](f: A => Free[F, B]): Free[F, B] =
-					freeMonad.flatMap[A, B](self)(f)
-
 			type TailRec[A] = Free[Function0, A]
 			type Async[A]   = Free[Chapter7.nonBlocking.Par, A]
 	end IO3
@@ -195,6 +184,9 @@ object Chapter13 extends App:
 				this match
 					case ReadLine        => lazyUnit(readLineOption)
 					case PrintLine(line) => lazyUnit(println(line))
+
+			import Part3Summary.Monad.flatMap
+			import Part3Summary.Monad.map
 
 			def toState: State[Buffers, A] =
 				this match
@@ -230,16 +222,16 @@ object Chapter13 extends App:
 					self.translate([x] => (c: Console[x]) => c.toThunk).runTrampoline
 
 				def unsafeRunConsoleState: State[Buffers, A] =
-					self.runFree([x] => (c: Console[x]) => c.toState)(using Monads.State.stateMonad)
-
-				def toThunk: () => A =
-					self.runFree([x] => (c: Console[x]) => c.toThunk)
+					self.runFree([x] => (c: Console[x]) => c.toState)
 
 				def toPar: Par[A] =
 					self.runFree([x] => (c: Console[x]) => c.toPar)
 
 				def toState: State[Buffers, A] =
 					self.runFree([x] => (c: Console[x]) => c.toState)
+
+				def toThunk: () => A =
+					self.runFree([x] => (c: Console[x]) => c.toThunk)
 
 			given function0Monad: Monad[Function0] with
 				def unit[A](a: => A): () => A =
@@ -293,4 +285,175 @@ object Chapter13 extends App:
 		yield l
 
 	val buffer  = Buffers(List("That's Ok.", "No problem ;-)", "All good!"), List.empty[String])
-	val f1State = f1.unsafeRunConsoleState.run(buffer)
+	//val f1State = f1.unsafeRunConsoleState.run(buffer)
+	//val f1Test  = f1.unsafeRunConsole
+
+	object IO5:
+		import NonBlockingPar.Par
+		import NonBlockingPar.Par.*
+		import NonBlockingPar.Par.parMonad
+
+		import Monads.State
+		import Monads.State.*
+		import Monads.State.stateMonad
+
+		import Monads.Free
+		import Monads.Free.*
+		import Monads.Free.freeMonad
+
+		given thunkMonad: Monad[Function0] with
+			def unit[A](a: => A): () => A =
+				() => a
+
+			def flatMap[A, B](fa: () => A)(f: A => () => B): () => B =
+				f(fa())
+
+		trait Console[F[_]]:
+			def readLine: F[Option[String]]
+			def printLine(line: String): F[Unit]
+
+		object Console:
+			def readLineOption: Option[String] =
+				scala.util.Try(scala.io.StdIn.readLine).toOption.filter(_.nonEmpty)
+
+			given parConsole: Console[Par] with
+				def readLine: Par[Option[String]] =
+					parMonad.unit(readLineOption)
+
+				def printLine(line: String): Par[Unit] =
+					parMonad.unit(println(line))
+
+			given freeConsole: Console[[x] =>> Free[Par, x]] with
+				def readLine: Free[Par, Option[String]] =
+					freeMonad.unit(readLineOption)
+
+				def printLine(line: String): Free[Par, Unit] =
+					freeMonad.unit(println(line))
+
+			given thunkConsole: Console[Function0] with
+				def readLine: () => Option[String] =
+					thunkMonad.unit(readLineOption)
+
+				def printLine(line: String): () => Unit =
+					thunkMonad.unit(println(line))
+
+			given stateConsole: Console[[x] =>> State[TestData, x]] with
+				def readLine: State[TestData, Option[String]] =
+					for
+						s <- State.get[TestData]
+						_ <- State.set(s.copy(input = if s.input.isEmpty then s.input else s.input.tail))
+					yield
+						s.input.headOption
+
+				def printLine(line: String): State[TestData, Unit] =
+					for
+						s <- State.get[TestData]
+						_ <- State.set(s.copy(output = s.output :+ line))
+					yield ()
+
+		def greet[F[_]: Monad](using c: Console[F]): F[Unit] =
+			for
+				_ <- c.printLine("What's your name?")
+				l <- c.readLine
+				_ <- l match
+					case Some(name) => c.printLine(s"Hello, $name!")
+					case None       => greet
+			yield ()
+
+		case class TestData(input: List[String], output: List[String])
+
+		def greetPar: Par[Unit]               = greet[Par]
+		def greetFree: Free[Par, Unit]        = greet[[x] =>> Free[Par, x]]
+		def greetThunk: () => Unit            = greet[Function0]
+		def greetState: State[TestData, Unit] = greet[[x] =>> State[TestData, x]]
+
+	end IO5
+
+	// greetPar
+	//val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
+	//IO5.greetPar.run(pool)
+	//pool.shutdown()
+
+	// greetFree
+	//val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
+	//IO5.greetFree.run.run(pool)
+	//pool.shutdown()
+
+	// greetThunk
+	//IO5.greetThunk()
+
+	// greetState
+	//val testData = IO5.TestData(List("Thijs", "Koen"), List.empty[String])
+	//println(IO5.greetState.run(testData)._2)
+
+	object IO6:
+		import Monads.Free
+		import Monads.Free.*
+
+		import NonBlockingPar.Par
+		import NonBlockingPar.Par.*
+
+		import Monads.State
+		import Monads.State.*
+
+		import IO5.TestData
+
+		type IO[A] = Free[Par, A]
+
+		enum Console[A]:
+			case ReadLine extends Console[Option[String]]
+			case PrintLine(line: String) extends Console[Unit]
+
+			def readLineOption: Option[String] =
+				scala.util.Try(scala.io.StdIn.readLine).toOption
+
+			def toPar: Par[A] =
+				this match
+					case ReadLine        => lazyUnit(readLineOption)
+					case PrintLine(line) => lazyUnit(println(line))
+
+			def toState: State[TestData, A] =
+				this match
+					case ReadLine =>
+						for
+							s <- State.get[TestData]
+							_ <- State.set(s.copy(input = if s.input.isEmpty then s.input else s.input.tail))
+						yield
+							s.input.headOption
+
+					case PrintLine(line) =>
+						for
+							s <- State.get[TestData]
+							_ <- State.set(s.copy(output = s.output :+ line))
+						yield ()
+
+		object Console:
+			def readLine: Free[Console, Option[String]] =
+				Free.Suspend(ReadLine)
+
+			def printLine(line: String): Free[Console, Unit] =
+				Free.Suspend(PrintLine(line))
+
+			extension[A] (self: Free[Console, A])
+				def ConsoleIO: IO[A] = self.translate([x] => (c: Console[x]) => c.toPar)
+
+				def ConsoleState: Free[[x] =>> State[TestData, x], A] =
+					self.translate([x] => (c: Console[x]) => c.toState)
+
+		val program: Free[Console, Unit] =
+			for
+				_ <- Console.printLine("Type something:")
+				l <- Console.readLine
+				_ <- Console.printLine(l.fold("You typed nothing!")(_.toUpperCase))
+			yield ()
+
+	end IO6
+
+	// Program IO
+	//val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
+	//IO6.program.ConsoleIO.run.run(pool)
+	//pool.shutdown()
+
+	// Program State
+	//val testData = IO5.TestData(List("Thijs", "Koen"), List.empty[String])
+	//println(IO6.program.ConsoleState.run.run(testData)._2)

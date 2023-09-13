@@ -1,4 +1,4 @@
-object Part3Summary extends App:
+object Part3Summary:
 	// Monoid
 	trait Semigroup[A]:
 		def combine(a1: A, a2: A): A
@@ -13,10 +13,10 @@ object Part3Summary extends App:
 	// Foldable
 	trait Foldable[F[_]]:
 		def foldLeft[A, B](as: F[A], z: B)(f: (B, A) => B): B
-		
+
 		def foldRight[A, B](as: F[A], z: B)(f: (A, B) => B): B =
 			foldLeft(as, z)((b, a) => f(a, b))
-		
+
 		def foldMap[A, B](as: F[A], m: Monoid[B])(f: A => B): B =
 			foldLeft(as, m.zero)((b, a) => m.combine(f(a), b))
 
@@ -129,3 +129,11 @@ object Part3Summary extends App:
 
 		def join[A](mma: F[F[A]]): F[A] =
 			flatMap(mma)(identity)
+
+	object Monad:
+		extension [F[_], A](self: F[A])(using M: Monad[F])
+			def flatMap[B](f: A => F[B]): F[B] =
+				M.flatMap(self)(f)
+
+			def map[B](f: A => B): F[B] =
+				M.map(self)(f)

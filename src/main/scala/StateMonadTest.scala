@@ -2,6 +2,7 @@ object StateMonadTest extends App:
 	import Monads.State
 	import Monads.State.*
 	import Monads.State.stateMonad
+	import Part3Summary.Monad.*
 
 	val myList: List[Char] =
 		List('a', 'b', 'c', 'd', 'e')
