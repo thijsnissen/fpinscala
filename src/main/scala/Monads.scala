@@ -1,6 +1,7 @@
 object Monads:
 	import Part3Summary.*
 	import Part3Summary.Monad.*
+	export Part3Summary.Monad.*
 
 	// The Identity Monad
 	opaque type Id[+A] = A
@@ -19,6 +20,13 @@ object Monads:
 	opaque type State[S, +A] =
 		S => (A, S)
 
+	opaque type RunnableST[A] =
+		[s] => () => State[s, A]
+
+	object RunnableST:
+		def unit[A](s: [s] => () => State[s, A]): RunnableST[A] =
+			s
+
 	object State:
 		def get[S]: State[S, S] =
 			(s: S) => (s, s)
@@ -26,9 +34,15 @@ object Monads:
 		def set[S](s: => S): State[S, Unit] =
 			_ => ((), s)
 
-		extension[S, A] (self: State[S, A])
+		extension [S, A](self: State[S, A])
 			def run(s: => S): (A, S) =
 				self(s)
+
+		extension [A](self: RunnableST[A])
+			def runST: A =
+				val su: State[Unit, A] = self[Unit]()
+
+				su.run(())._1
 
 		given stateMonad[S]: Monad[[x] =>> State[S, x]] with
 			def unit[A](a: => A): State[S, A] =
@@ -102,6 +116,7 @@ object Monads:
 		type TailRec[A] = Free[Function0, A]
 
 		extension [A](self: TailRec[A])
+			@annotation.tailrec
 			def runTailRec: A =
 				self match
 					case Return(a)   => a

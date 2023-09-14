@@ -1236,6 +1236,33 @@ class Test extends AnyFunSuite:
 
 		assertResult(testResult2)(IO6.program.ConsoleState.run.run(testData2)._2)
 
+	test("Chapter 14"):
+		import Chapter14.*
+
+		val r = scala.util.Random
+
+		val randomSeq: List[Int] =
+			(for _ <- 1 to 1000 yield r.nextInt(Int.MaxValue)).toList
+
+		val sortedSeq: List[Int] =
+			randomSeq.sorted
+
+		val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
+
+		assertResult(sortedSeq)(quicksortMutable(randomSeq))
+		assertResult(sortedSeq)(quicksortImmutable(randomSeq))
+		assertResult(sortedSeq)(quicksortFree(randomSeq).runTailRec)
+		assertResult(sortedSeq)(quicksortPar(randomSeq).run.run(pool))
+		assertResult(sortedSeq)(STArray.quicksort(randomSeq))
+
+		assert:
+			quicksortMutable(randomSeq) == quicksortImmutable(randomSeq) &&
+				quicksortImmutable(randomSeq) == quicksortFree(randomSeq).runTailRec &&
+				quicksortFree(randomSeq).runTailRec == quicksortPar(randomSeq).run.run(pool) &&
+				quicksortPar(randomSeq).run.run(pool) == STArray.quicksort(randomSeq)
+
+		pool.shutdown()
+
 	test("SummerSchoolPatterns"):
 		import SummerSchoolPatterns.*
 		import SummerSchoolPatterns.List.*
@@ -1257,14 +1284,3 @@ class Test extends AnyFunSuite:
 		assertResult(expected = "<header>/home/123</header><footer>/home/123</footer>")(renderWebsite("/home")(using config))
 		assertResult(expected = 3)(genericAdder(1, 2))
 		assertResult(expected = "3")(genericAdder("1", "2"))
-
-	test("Algorithms"):
-		val r = scala.util.Random
-
-		val randomSeq =
-			for
-				_ <- 1 to 1000000
-			yield
-				r.nextInt(1000000)
-
-		assertResult(randomSeq.toList.sorted)(Algorithms.quickSort(randomSeq.toList))
