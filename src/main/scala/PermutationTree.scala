@@ -1,7 +1,7 @@
-//object PermutationTree extends App:
-//	enum Tree[+A]:
-//		case Leaf(a: A)
-//		case Node(l: Tree[A], a: A, r: Tree[A])
+object PermutationTree extends App:
+	enum Tree[+A]:
+		case Leaf(a: A)
+		case Node(l: Tree[A], a: A, r: Tree[A])
 //
 //	object Tree:
 //		def listToTree[A](la: List[List[A]]): Tree[A] =
