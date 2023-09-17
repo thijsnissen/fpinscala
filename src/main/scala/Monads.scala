@@ -98,11 +98,6 @@ object Monads:
 			def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B] =
 				f(fa.unsafeRun)
 
-	// The IO Monad via Free
-	import NonBlockingPar.Par
-
-	opaque type IOFree[A] = Free[Par, A]
-
 	// The Free Monad
 	enum Free[F[_], A]:
 		case Return(a: A)
@@ -114,6 +109,8 @@ object Monads:
 
 	object Free:
 		type TailRec[A] = Free[Function0, A]
+
+		type Async[A]   = Free[NonBlockingPar.Par, A]
 
 		extension [A](self: TailRec[A])
 			@annotation.tailrec

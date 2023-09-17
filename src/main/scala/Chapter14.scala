@@ -308,6 +308,4 @@ object Chapter14 extends App:
 			ST(new STHashMap(mutable.HashMap.empty))
 
 	// Run Quicksort implementations
-	QSTest
-
-
+	// QSTest

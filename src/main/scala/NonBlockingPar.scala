@@ -86,7 +86,7 @@ object NonBlockingPar:
 
 		given parMonad: Monad[Par] with
 			def unit[A](a: => A): Par[A] =
-				(s: ExecutorService) =>
+				(_: ExecutorService) =>
 					(cb: A => Unit) => cb(a)
 
 			def flatMap[A, B](fa: Par[A])(f: A => Par[B]): Par[B] =

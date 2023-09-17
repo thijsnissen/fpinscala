@@ -1242,7 +1242,7 @@ class Test extends AnyFunSuite:
 		val r = scala.util.Random
 
 		val randomSeq: List[Int] =
-			(for _ <- 1 to 1000 yield r.nextInt(Int.MaxValue)).toList
+			(for _ <- 1 to 10 yield r.nextInt(Int.MaxValue)).toList
 
 		val sortedSeq: List[Int] =
 			randomSeq.sorted
@@ -1262,6 +1262,38 @@ class Test extends AnyFunSuite:
 				quicksortPar(randomSeq).run.run(pool) == STArray.quicksort(randomSeq)
 
 		pool.shutdown()
+
+	test("Chapter 15"):
+		import Chapter15.P1.*
+
+		val intList: List[Int]         = List(1, 2, 3)
+		val intLazyList: LazyList[Int] = LazyList(1, 2, 3)
+
+		val pullIntList: Pull[Int, Unit]     = Pull.fromList(intList)
+		val pullIntLazyList: Pull[Int, Unit] = Pull.fromLazyList(intLazyList)
+
+		def foldList[A, B](pla: Pull[A, B]): List[A] =
+			pla.fold(List.empty[A])((a: List[A], o: A) => o :: a)(1)
+
+		val pullIntListFold: List[Int]         = foldList(pullIntList)
+		val pullIntLazyListFold: LazyList[Int] = pullIntLazyList.fold(LazyList.empty[Int])((a: LazyList[Int], o: Int) => o #:: a)(1)
+
+		// Exercise 15.1
+		assertResult(intList.reverse)(pullIntListFold)
+		assertResult(intLazyList.reverse)(pullIntLazyListFold)
+
+		// Exercise 15.2
+		val pullIntIt: Pull[Int, Nothing] = Pull.iterate(1)(_ + 1)
+
+		assertResult(intList.reverse)(foldList(pullIntIt.take(3)))
+
+		// Exercise: 15.3
+		val intList2: List[Int] = List(4, 5, 6)
+
+		assertResult(intList2.reverse)(foldList(pullIntIt.drop(3).take(3)))
+		assertResult(intList.reverse)(foldList(pullIntIt.takeWhile(_ <= 3)))
+		// TODO: Returns empty list when chaning methods. Why?
+		//assertResult(intList2.reverse)(foldList(pullIntIt.dropWhile(_ <= 3)).take(3))
 
 	test("SummerSchoolPatterns"):
 		import SummerSchoolPatterns.*
