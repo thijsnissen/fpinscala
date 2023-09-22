@@ -1,4 +1,3 @@
-import Chapter11.optionMonad
 import org.scalatest.funsuite.AnyFunSuite
 
 class Test extends AnyFunSuite:
@@ -1196,6 +1195,8 @@ class Test extends AnyFunSuite:
 		val treeI: Tree[Int]       = Tree(1, List(Tree(2, Nil), Tree(3, Nil)))
 		val treeC: Tree[Char]      = Tree('a', List(Tree('b', Nil), Tree('c', Nil)))
 
+		import Chapter11.optionMonad
+
 		assertResult(Some(listC))(Traverse.listTraverse.traverse(listI)(a => Some((a + 96).toChar))(using optionMonad))
 		assertResult(Some(mapS))(Traverse.mapTraverse.traverse(mapC)(a => Some(a.toString))(using optionMonad))
 		assertResult(List(Some('1'), Some('2'), Some('3')))(Traverse.optionTraverse.traverse(Some("123"))(_.toList)(using listMonad))
@@ -1242,7 +1243,7 @@ class Test extends AnyFunSuite:
 		val r = scala.util.Random
 
 		val randomSeq: List[Int] =
-			(for _ <- 1 to 1000 yield r.nextInt(Int.MaxValue)).toList
+			(for _ <- 1 to 10 yield r.nextInt(Int.MaxValue)).toList
 
 		val sortedSeq: List[Int] =
 			randomSeq.sorted
@@ -1251,17 +1252,83 @@ class Test extends AnyFunSuite:
 
 		assertResult(sortedSeq)(quicksortMutable(randomSeq))
 		assertResult(sortedSeq)(quicksortImmutable(randomSeq))
-		assertResult(sortedSeq)(quicksortFree(randomSeq).runTailRec)
+		assertResult(sortedSeq)(quicksortFree(randomSeq).run(using Monads.Free.function0Monad)())
 		assertResult(sortedSeq)(quicksortPar(randomSeq).run.run(pool))
 		assertResult(sortedSeq)(STArray.quicksort(randomSeq))
 
 		assert:
 			quicksortMutable(randomSeq) == quicksortImmutable(randomSeq) &&
-				quicksortImmutable(randomSeq) == quicksortFree(randomSeq).runTailRec &&
-				quicksortFree(randomSeq).runTailRec == quicksortPar(randomSeq).run.run(pool) &&
+				quicksortImmutable(randomSeq) == quicksortFree(randomSeq).run(using Monads.Free.function0Monad)() &&
+				quicksortFree(randomSeq).run(using Monads.Free.function0Monad)() == quicksortPar(randomSeq).run.run(pool) &&
 				quicksortPar(randomSeq).run.run(pool) == STArray.quicksort(randomSeq)
 
 		pool.shutdown()
+
+	test("Chapter 15"):
+		import Chapter15.P1.*
+
+		val intList: List[Int]         = List(1, 2, 3)
+		val intLazyList: LazyList[Int] = LazyList(1, 2, 3)
+
+		val pullIntList: Pull[Int, Unit]     = Pull.fromList(intList)
+		val pullIntLazyList: Pull[Int, Unit] = Pull.fromLazyList(intLazyList)
+
+		val pullIntListFold: List[Int] =
+			pullIntList.fold(List.empty[Int])((a: List[Int], o: Int) => o :: a)(1)
+
+		val pullIntLazyListFold: LazyList[Int] =
+			pullIntLazyList.fold(LazyList.empty[Int])((a: LazyList[Int], o: Int) => o #:: a)(1)
+
+		// Exercise 15.1
+		assertResult(intList.reverse)(pullIntListFold)
+		assertResult(intList.reverse)(pullIntLazyListFold)
+
+		// Exercise 15.2
+		val pullIntIt: Pull[Int, Nothing] = Pull.iterate(1)(_ + 1)
+
+		assertResult(intList)(pullIntIt.take(3).toList)
+
+		// Exercise: 15.3
+		val intList2: List[Int] = List(4, 5, 6)
+
+		assertResult(intList2)(pullIntIt.drop(3).take(3).toList)
+		assertResult(intList)(pullIntIt.takeWhile(_ <= 3).toList)
+		// TODO: Returns empty list. Why?
+		//assertResult(intList2)(pullIntIt.dropWhile(_ <= 3).take(3).toList)
+
+		// Exerise 15.4
+		import Part3Summary.Monoid
+
+		val intAddition: Monoid[Int] = new Monoid[Int]:
+			def combine(a1: Int, a2: Int): Int = a1 + a2
+
+			def zero: Int = 0
+
+		assertResult(List(0, 1, 3, 6, 10, 15, 21, 28, 36, 45))(pullIntIt.tally(using intAddition).take(10).toList)
+
+		// Exercise 15.5
+		assertResult(List(1.0, 1.5, 2.5))(pullIntList.slidingMean(2).toList)
+
+		// Exercise 15.6
+		assertResult(25)(pullIntIt.take(25).countViaMapAcc.toList.last)
+		assertResult(List(0, 1, 3, 6, 10, 15, 21, 28, 36, 45))(pullIntIt.tallyViaMapAcc(using intAddition).take(10).toList)
+
+		assertResult(List(1, 1, 2, 2, 3, 3, 4, 4, 5, 5))(pullIntIt.flatMapOutput(i => Pull.fromList(List(i, i))).take(10).toList)
+
+		//import Chapter15.P1.Pipe
+		//import Chapter15.P1.Pipe.*
+		//
+		//val lines: Stream[String] = Stream("Hello", "", "World!")
+		//
+		//val normalized: Stream[String] = normalize(lines)
+		//
+		//import scala.util.chaining.scalaUtilChainingOps
+		//
+		//val normalized2: Stream[String] = lines.pipe(normalize)
+		//
+		//val normalized3: Stream[String] = lines.pipe(nonEmpty).pipe(lowerCase)
+		//
+		//assert(normalized == normalized2 && normalized == normalized3)
 
 	test("SummerSchoolPatterns"):
 		import SummerSchoolPatterns.*

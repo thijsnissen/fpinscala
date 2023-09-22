@@ -137,3 +137,16 @@ object Part3Summary:
 
 			def map[B](f: A => B): F[B] =
 				M.map(self)(f)
+
+	trait MonadThrow[F[_]] extends Monad[F]:
+		import scala.util.{Try, Failure, Success}
+
+		def raiseError[A](t: Throwable): F[A]
+
+		extension[A] (self: F[A])
+			def attempt: F[Try[A]]
+
+			def handleErrorWith(h: Throwable => F[A]): F[A] =
+				flatMap(attempt):
+					case Failure(t) => h(t)
+					case Success(a) => unit(a)

@@ -98,11 +98,6 @@ object Monads:
 			def flatMap[A, B](fa: IO[A])(f: A => IO[B]): IO[B] =
 				f(fa.unsafeRun)
 
-	// The IO Monad via Free
-	import NonBlockingPar.Par
-
-	opaque type IOFree[A] = Free[Par, A]
-
 	// The Free Monad
 	enum Free[F[_], A]:
 		case Return(a: A)
@@ -115,16 +110,9 @@ object Monads:
 	object Free:
 		type TailRec[A] = Free[Function0, A]
 
-		extension [A](self: TailRec[A])
-			@annotation.tailrec
-			def runTailRec: A =
-				self match
-					case Return(a)   => a
-					case Suspend(s)  => s()
-					case Chain(x, f) => x match
-						case Return(a)   => f(a).runTailRec
-						case Suspend(s)  => f(s()).runTailRec
-						case Chain(y, g) => y.flatMap(a => g(a).flatMap(f)).runTailRec
+		type SyncTask[A] = TailRec[scala.util.Try[A]]
+
+		type Async[A]   = Free[NonBlockingPar.Par, A]
 
 		@annotation.tailrec
 		def step[F[_], A](a: Free[F, A]): Free[F, A] =
@@ -156,3 +144,10 @@ object Monads:
 
 			def flatMap[A, B](fa: Free[F, A])(f: A => Free[F, B]): Free[F, B] =
 				Free.Chain(fa, f)
+
+		given function0Monad: Monad[Function0] with
+			def unit[A](a: => A): () => A =
+				() => a
+
+			def flatMap[A, B](fa: () => A)(f: A => () => B): () => B =
+				f(fa())
