@@ -1,4 +1,8 @@
 object Chapter15 extends App:
+	import Part3Summary.Monoid
+	import Part3Summary.Monad
+	import Part3Summary.Monad.*
+
 	object P1:
 
 		enum Pull[+O, +R]:
@@ -6,7 +10,7 @@ object Chapter15 extends App:
 			case Output[+O](value: O) extends Pull[O, Unit]
 			case FlatMap[X, +O, +R](source: Pull[O, X], f: X => Pull[O, R]) extends Pull[O, R]
 
-			def step: Either[R, (O, Pull[O, R])] = this match
+			final def step: Either[R, (O, Pull[O, R])] = this match
 				case Result(r)          => Left(r)
 				case Output(o)          => Right(o, Pull.done)
 				case FlatMap(source, f) => source match
@@ -18,7 +22,7 @@ object Chapter15 extends App:
 			@annotation.tailrec
 			final def fold[A](init: A)(f: (A, O) => A): (R, A) =
 				step match
-					case Left(r)         => (r, init)
+					case Left(r)       => (r, init)
 					case Right((h, t)) => t.fold(f(init, h))(f)
 
 			def toList: List[O] =
@@ -60,8 +64,8 @@ object Chapter15 extends App:
 
 			def dropWhile(p: O => Boolean): Pull[Nothing, Pull[O, R]] =
 				uncons.flatMap:
-					case Left(r)     => Result(Result(r))
-					case Right(h, t) => if p(h) then t.dropWhile(p) else Result(Output(h) >> t)
+					case Left(r: R)                 => Result(Result(r))
+					case Right(h: O, t: Pull[O, R]) => if p(h) then t.dropWhile(p) else Result(Output(h) >> t)
 
 			def mapOutput[O2](f: O => O2): Pull[O2, R] =
 				uncons.flatMap:
@@ -81,6 +85,38 @@ object Chapter15 extends App:
 						case Right(_, t) => Output(total + 1) >> go(total + 1, t)
 
 				Output(0) >> go(0, this)
+
+			// Exercise 15.4
+			def tally[O2 >: O](using m: Monoid[O2]): Pull[O2, R] =
+				def loop(total: O2, p: Pull[O, R]): Pull[O2, R] =
+					p.uncons.flatMap:
+						case Left(r)     => Result(r)
+						case Right(h, t) =>
+							val newTotal = m.combine(total, h)
+
+							Output(newTotal) >> loop(newTotal, t)
+
+				Output(m.zero) >> loop(m.zero, this)
+
+			def mapAccumulate[S, O2](init: S)(f: (S, O) => (S, O2)): Pull[O2, (S, R)] =
+				uncons.flatMap:
+					case Left(r)     => Result((init, r))
+					case Right(h, t) =>
+						val (s, out) = f(init, h)
+
+						Output(out) >> t.mapAccumulate(s)(f)
+
+			// Exercise 15.6
+			def countViaMapAcc: Pull[Int, R] =
+				Output(0) >> mapAccumulate(0)((s, _) => (s + 1, s + 1)).map(_._2)
+
+			def tallyViaMapAcc[O2 >: O](using m: Monoid[O2]): Pull[O2, R] =
+				Output(m.zero) >> mapAccumulate(m.zero):
+					(s: O2, o: O) =>
+						val s2 = m.combine(s, o)
+
+						(s2, s2)
+				.map(_._2)
 
 		object Pull:
 			val done: Pull[Nothing, Unit] = Result(())
@@ -116,7 +152,131 @@ object Chapter15 extends App:
 			def continually[O](o: O): Pull[O, Nothing] =
 				Output(o).repeat
 
-			// Exervise 15.2
+			// Exercise 15.2
 			def iterate[O](initial: O)(f: O => O): Pull[O, Nothing] =
 				Output(initial) >> iterate(f(initial))(f)
+
+			// Exercise 15.4
+			import scala.collection.immutable.Queue
+
+			extension[R] (self: Pull[Int, R])
+				def slidingMean(n: Int): Pull[Double, R] =
+					def loop(window: Queue[Int], p: Pull[Int, R]): Pull[Double, R] =
+						p.uncons.flatMap:
+							case Left(r)     => Result(r)
+							case Right(h, t) =>
+								val newWindow       = if window.size < n then window :+ h else window.tail :+ h
+								val meanOfNewWindow = newWindow.sum / newWindow.size.toDouble
+
+								Output(meanOfNewWindow) >> loop(newWindow, t)
+
+					loop(Queue.empty[Int], self)
+
+			extension[O] (self: Pull[O, Unit])
+				def toStream: Stream[O] = self
+
+				def flatMapOutput[O2](f: O => Pull[O2, Unit]): Pull[O2, Unit] =
+					self.uncons.flatMap:
+						case Left(()) => Result(())
+						case Right((hd, tl)) =>
+							f(hd) >> tl.flatMapOutput(f)
+
+			given [O]: Monad[[x] =>> Pull[O, x]] with
+				def unit[A](a: => A): Pull[O, A] = Result(a)
+
+				def flatMap[A, B](fa: Pull[O, A])(f: A => Pull[O, B]): Pull[O, B] =
+					fa.flatMap(f)
+
+		opaque type Stream[+O] = Pull[O, Unit]
+
+		object Stream:
+			import Pull.*
+			import Pull.given
+
+			def apply[O](os: O*): Stream[O] =
+				Pull.fromList(os.toList).toStream
+
+			extension[O] (self: Stream[O])
+				def toPull: Pull[O, Unit] = self
+
+				def fold[A](init: A)(f: (A, O) => A): A =
+					self.fold(init)(f)(1)
+
+				def toList: List[O] =
+					self.toList
+
+				def take(n: Int): Stream[O] =
+					self.take(n).map(_ => ())
+
+				@annotation.targetName("concat")
+				def ++(that: => Stream[O]): Stream[O] =
+					self >> that
+
+			given Monad[Stream] with
+				def unit[A](a: => A): Stream[A] = Output(a)
+
+				def flatMap[A, B](fa: Stream[A])(f: A => Stream[B]): Stream[B] =
+					fa.uncons.flatMap:
+						case Left(()) => Result(())
+						case Right(h, t) =>
+							f(h) >> t.flatMapOutput(f)
+
+		type Pipe[-I, +O] = Stream[I] => Stream[O]
+
+		//object Pipe:
+		//	import P1.Stream
+		//	import Stream.*
+		//
+		//	import Pull.*
+		//	import Pull.given
+		//
+		//	val nonEmpty: Pipe[String, String] =
+		//		_.filter(_.nonEmpty)
+		//
+		//	val lowerCase: Pipe[String, String] =
+		//		_.map(_.toLowerCase)
+		//
+		//	val normalize: Pipe[String, String] =
+		//		nonEmpty andThen lowerCase
+		//
+		//	def exists[I](f: I => Boolean): Pipe[I, Boolean] =
+		//		src => src.map(f).toPull.tally(using Monoid.booleanOr).toStream
+		//
+		//	def count[A]: Pipe[A, Int] =
+		//		_.toPull.count.map(_ => ()).toStream
+		//
+		//	import scala.util.chaining.scalaUtilChainingOps
+		//
+		//	import Monads.IO
+		//	import Monads.IO.*
+		//
+		//	def fromIterator[O](itr: Iterator[O]): Stream[O] =
+		//		Pull
+		//			.unfold(itr):
+		//				itr =>
+		//					if itr.hasNext then Right((itr.next(), itr))
+		//					else Left(itr)
+		//			.map(_ => ())
+		//			.toStream
+		//
+		//	def processFile[A](file: java.io.File, p: Pipe[String, A])(using m: Monoid[A]): IO[A] =
+		//		IO.ioMonad.unit:
+		//			val source = scala.io.Source.fromFile(file)
+		//			try fromIterator(source.getLines).pipe(p).fold(m.zero)(m.combine)
+		//			finally source.close()
+		//
+		//	import Part3Summary.Monoid
+		//
+		//	val booleanOr: Monoid[Boolean] = new Monoid[Boolean]:
+		//		def combine(a1: Boolean, a2: Boolean): Boolean = a1 || a2
+		//
+		//		def zero: Boolean = false
+		//
+		//	def checkFileForGt40K(file: java.io.File): IO[Boolean] =
+		//		processFile(file, count andThen exists(_ > 40000))(using booleanOr)
+		//end Pipe
 	end P1
+
+	object P2:
+
+	end P2

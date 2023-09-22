@@ -65,7 +65,7 @@ object Quicksort extends App:
 	def r1: Seq[Int] = quicksort(randomSeq)
 
 	val t2: Long = System.currentTimeMillis
-	def r2: Seq[Int] = quicksortTailRec(randomSeq).runTailRec
+	def r2: Seq[Int] = quicksortTailRec(randomSeq).run(using Free.function0Monad)()
 
 	val t3: Long = System.currentTimeMillis
 	def r3: Seq[Int] = quicksortAsync(randomSeq).run.run(pool)
@@ -78,11 +78,3 @@ object Quicksort extends App:
 	println(s"Quicksort: ${t2 - t1}ms") // 24196ms
 	println(s"TailRec:   ${t3 - t2}ms") // 24691ms
 	println(s"Async:     ${t4 - t3}ms") // 39576ms
-
-	def program[F[_], A]: F[Seq[A]] = ???
-
-	def pTailRec[A]: TailRec[Seq[A]] = program[TailRec, A]
-	def pAsync[A]: Async[Seq[A]]     = program[Async, A]
-
-	pTailRec.runTailRec
-	pAsync.run

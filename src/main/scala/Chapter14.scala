@@ -113,7 +113,7 @@ object Chapter14 extends App:
 
 		println(s"immutable: ${t3 - t2}ms")
 
-		val qs3: Seq[Int] = quicksortFree(randomSeq).runTailRec
+		val qs3: Seq[Int] = quicksortFree(randomSeq).run(using Free.function0Monad)()
 		val t4: Long = System.currentTimeMillis
 
 		println(s"freeTRec: ${t4 - t3}ms")
