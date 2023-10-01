@@ -64,72 +64,6 @@ object Chapter14 extends App:
 
 			quicksortImmutable(lessThan) ++ equalTo ++ quicksortImmutable(greaterThan)
 
-	def quicksortFree[A](s: Seq[A])(using Ordering[A]): TailRec[Seq[A]] =
-		if s.isEmpty then Return(s) else
-			val (lessThan, equalTo, greaterThan) =
-				val pivot = s.head
-
-				s.foldLeft((Seq.empty[A], Seq.empty[A], Seq.empty[A])):
-					case ((l, e, g), x) if x > pivot  => (l, e, x +: g)
-					case ((l, e, g), x) if x == pivot => (l, x +: e, g)
-					case ((l, e, g), x) if x < pivot  => (x +: l, e, g)
-
-			for
-				lt <- quicksortFree(lessThan)
-				gt <- quicksortFree(greaterThan)
-			yield
-				lt ++ equalTo ++ gt
-
-	def quicksortPar[A](s: Seq[A])(using Ordering[A]): Free[Par, Seq[A]] =
-		if s.isEmpty then Return(s) else
-			val (lessThan, equalTo, greaterThan) =
-				val pivot = s.head
-
-				s.foldLeft((Seq.empty[A], Seq.empty[A], Seq.empty[A])):
-					case ((l, e, g), x) if x > pivot => (l, e, x +: g)
-					case ((l, e, g), x) if x == pivot => (l, x +: e, g)
-					case ((l, e, g), x) if x < pivot => (x +: l, e, g)
-
-			for
-				lt <- quicksortPar(lessThan)
-				gt <- quicksortPar(greaterThan)
-			yield
-				lt ++ equalTo ++ gt
-
-	object QSTest:
-		val r: Random = scala.util.Random
-
-		val randomSeq: List[Int] =
-			(for _ <- 1 to 1000 yield r.nextInt(Int.MaxValue)).toList
-
-		val t1: Long  = System.currentTimeMillis
-		val qs1: Seq[Int] = quicksortMutable(randomSeq)
-		val t2: Long = System.currentTimeMillis
-
-		println(s"mutable: ${t2 - t1}ms")
-
-		val qs2: Seq[Int] = quicksortImmutable(randomSeq)
-		val t3: Long = System.currentTimeMillis
-
-		println(s"immutable: ${t3 - t2}ms")
-
-		val qs3: Seq[Int] = quicksortFree(randomSeq).run(using Free.function0Monad)()
-		val t4: Long = System.currentTimeMillis
-
-		println(s"freeTRec: ${t4 - t3}ms")
-
-		val pool: ExecutorService = java.util.concurrent.Executors.newFixedThreadPool(12)
-		val qs4: Seq[Int] = quicksortPar(randomSeq).run.run(pool)
-		val t5: Long = System.currentTimeMillis
-		pool.shutdown()
-
-		println(s"FreePar: ${t5 - t4}ms")
-
-		val qs5: List[Int] = STArray.quicksort(randomSeq)
-		val t6: Long = System.currentTimeMillis
-
-		println(s"STArray: ${t6 - t5}ms")
-
 	opaque type ST[S, A] =
 		S => (A, S)
 
@@ -306,6 +240,3 @@ object Chapter14 extends App:
 	object STHashMap:
 		def empty[S, K, V]: ST[S, STHashMap[S, K, V]] =
 			ST(new STHashMap(mutable.HashMap.empty))
-
-	// Run Quicksort implementations
-	// QSTest

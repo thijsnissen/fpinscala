@@ -1240,29 +1240,19 @@ class Test extends AnyFunSuite:
 	test("Chapter 14"):
 		import Chapter14.*
 
-		val r = scala.util.Random
-
 		val randomSeq: List[Int] =
-			(for _ <- 1 to 10 yield r.nextInt(Int.MaxValue)).toList
+			(for _ <- 1 to 10 yield scala.util.Random.nextInt(Int.MaxValue)).toList
 
 		val sortedSeq: List[Int] =
 			randomSeq.sorted
 
-		val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
-
 		assertResult(sortedSeq)(quicksortMutable(randomSeq))
 		assertResult(sortedSeq)(quicksortImmutable(randomSeq))
-		assertResult(sortedSeq)(quicksortFree(randomSeq).run(using Monads.Free.function0Monad)())
-		assertResult(sortedSeq)(quicksortPar(randomSeq).run.run(pool))
 		assertResult(sortedSeq)(STArray.quicksort(randomSeq))
 
 		assert:
 			quicksortMutable(randomSeq) == quicksortImmutable(randomSeq) &&
-				quicksortImmutable(randomSeq) == quicksortFree(randomSeq).run(using Monads.Free.function0Monad)() &&
-				quicksortFree(randomSeq).run(using Monads.Free.function0Monad)() == quicksortPar(randomSeq).run.run(pool) &&
-				quicksortPar(randomSeq).run.run(pool) == STArray.quicksort(randomSeq)
-
-		pool.shutdown()
+				quicksortImmutable(randomSeq) == STArray.quicksort(randomSeq)
 
 	test("Chapter 15"):
 		import Chapter15.P1.*

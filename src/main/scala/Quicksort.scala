@@ -1,80 +1,93 @@
 object Quicksort extends App:
-	import Monads.Free
-	import Monads.Free.*
+	trait Monad[F[_]]:
+		def unit[A](a: => A): F[A]
 
+		def flatMap[A, B](fa: F[A])(f: A => F[B]): F[B]
+
+	object Monad:
+		extension[F[_], A] (self: F[A])(using M: Monad[F])
+			def flatMap[B](f: A => F[B]): F[B] =
+				M.flatMap(self)(f)
+
+			def map[B](f: A => B): F[B] =
+				M.flatMap(self)((a: A) => M.unit(f(a)))
+
+	enum Free[F[_], A]:
+		case Return(a: A)
+		case Suspend(s: F[A])
+		case FlatMap[F[_], A, B](s: Free[F, A], f: A => Free[F, B]) extends Free[F, B]
+
+	object Free:
+		import Monad.*
+		export Monad.*
+
+		@annotation.tailrec
+		def step[F[_], A](free: Free[F, A]): Free[F, A] =
+			free match
+				case FlatMap(FlatMap(fx, f), g) => step(fx.flatMap(x => f(x).flatMap(g)))
+				case FlatMap(Return(x), f)      => step(f(x))
+				case _                          => free
+
+		extension[F[_], A] (self: Free[F, A])
+			def run(using F: Monad[F]): F[A] =
+				self match
+					case Return(a)               => F.unit(a)
+					case Suspend(fa)             => fa
+					case FlatMap(Suspend(fa), f) => fa.flatMap(a => f(a).run)
+					case FlatMap(_, _)           => sys.error("Impossible, `step` eliminates these cases")
+
+		given freeMonad[F[_]]: Monad[[x] =>> Free[F, x]] with
+			def unit[A](a: => A): Free[F, A] =
+				Free.Return(a)
+
+			def flatMap[A, B](fa: Free[F, A])(f: A => Free[F, B]): Free[F, B] =
+				Free.FlatMap(fa, f)
+
+		given function0Monad: Monad[Function0] with
+			def unit[A](a: => A): () => A =
+				() => a
+
+			def flatMap[A, B](fa: () => A)(f: A => () => B): () => B =
+				f(fa())
+
+		given ParMonad: Monad[NonBlockingPar.Par] with
+			def unit[A](a: => A): NonBlockingPar.Par[A] =
+				NonBlockingPar.Par.parMonad.unit(a)
+
+			def flatMap[A, B](fa: NonBlockingPar.Par[A])(f: A => NonBlockingPar.Par[B]): NonBlockingPar.Par[B] =
+				NonBlockingPar.Par.parMonad.flatMap(fa)(f)
+
+	import Free.*
+	import Free.given
 	import math.Ordering.Implicits.infixOrderingOps
 
-	def quicksort[A](s: Seq[A])(using Ordering[A]): Seq[A] =
-		if s.isEmpty then s else
-			val (lessThan, equalTo, greaterThan) =
-				val pivot = s.head
-
-				s.foldLeft((Seq.empty[A], Seq.empty[A], Seq.empty[A])):
-					case ((l, e, g), x) if x > pivot => (l, e, x +: g)
-					case ((l, e, g), x) if x == pivot => (l, x +: e, g)
-					case ((l, e, g), x) if x < pivot => (x +: l, e, g)
-
-			quicksort(lessThan) ++ equalTo ++ quicksort(greaterThan)
+	type TailRec[A] = Free[Function0, A]
+	type Async[A]   = Free[NonBlockingPar.Par, A]
 
 	def quicksortTailRec[A](s: Seq[A])(using Ordering[A]): TailRec[Seq[A]] =
-		if s.isEmpty then Return(s) else
+		if s.isEmpty then Return(s) else Suspend: () =>
 			val (lessThan, equalTo, greaterThan) =
 				val pivot = s.head
 
 				s.foldLeft((Seq.empty[A], Seq.empty[A], Seq.empty[A])):
-					case ((l, e, g), x) if x > pivot  => (l, e, x +: g)
-					case ((l, e, g), x) if x == pivot => (l, x +: e, g)
-					case ((l, e, g), x) if x < pivot  => (x +: l, e, g)
+					case ((l, e, g), x) =>
+						if      x > pivot  then (l, e, x +: g)
+						else if x == pivot then (l, x +: e, g)
+						else                    (x +: l, e, g) // x < pivot
 
-			for
-				lt <- quicksortTailRec(lessThan)
-				gt <- quicksortTailRec(greaterThan)
-			yield
-				lt ++ equalTo ++ gt
+			//for
+			//	lt <- quicksortTailRec(lessThan)
+			//	gt <- quicksortTailRec(greaterThan)
+			//yield
+			//	lt ++ equalTo ++ gt
+
+			???
 
 	def quicksortAsync[A](s: Seq[A])(using Ordering[A]): Async[Seq[A]] =
-		if s.isEmpty then Return(s) else
-			val (lessThan, equalTo, greaterThan) =
-				val pivot = s.head
-
-				s.foldLeft((Seq.empty[A], Seq.empty[A], Seq.empty[A])):
-					case ((l, e, g), x) if x > pivot => (l, e, x +: g)
-					case ((l, e, g), x) if x == pivot => (l, x +: e, g)
-					case ((l, e, g), x) if x < pivot => (x +: l, e, g)
-
-			for
-				lt <- quicksortAsync(lessThan)
-				gt <- quicksortAsync(greaterThan)
-			yield
-				lt ++ equalTo ++ gt
-
-	import java.util.concurrent.ExecutorService
-	import scala.util.Random
-
-	val r: Random = scala.util.Random
-
-	val size: Int = 25000000
+		???
 
 	val randomSeq: List[Int] =
-		(for _ <- 0 until size yield r.nextInt(Int.MaxValue)).toList
+		(for _ <- 0 until 1000000 yield scala.util.Random.nextInt(Int.MaxValue)).toList
 
-	val pool: ExecutorService =
-		java.util.concurrent.Executors.newFixedThreadPool(4)
-
-	val t1: Long = System.currentTimeMillis
-	def r1: Seq[Int] = quicksort(randomSeq)
-
-	val t2: Long = System.currentTimeMillis
-	def r2: Seq[Int] = quicksortTailRec(randomSeq).run(using Free.function0Monad)()
-
-	val t3: Long = System.currentTimeMillis
-	def r3: Seq[Int] = quicksortAsync(randomSeq).run.run(pool)
-
-	val t4: Long = System.currentTimeMillis
-
-	pool.shutdown()
-
-	// size: 25.000.000
-	println(s"Quicksort: ${t2 - t1}ms") // 24196ms
-	println(s"TailRec:   ${t3 - t2}ms") // 24691ms
-	println(s"Async:     ${t4 - t3}ms") // 39576ms
+	println:
+		quicksortTailRec(randomSeq).run
