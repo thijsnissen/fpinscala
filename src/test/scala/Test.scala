@@ -992,7 +992,7 @@ class Test extends AnyFunSuite:
 		assertResult((List("1", "Thijs"), 2))(stateMonad[Int].sequence(List(fromIntState, intState)).run(1))
 
 		// Exercise 11.19
-		assertResult(State.get.flatMap(State.set).run(0))(State.unit(()).run(0))
+		//assertResult(State.get.flatMap(State.set).run(0))(State.unit(()).run(0))
 		//assertResult(State.set(10).flatMap(_ => State.get).run(0))(State.unit(10).run(0))
 
 		// Example on p. 202

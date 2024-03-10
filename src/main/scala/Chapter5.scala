@@ -45,7 +45,7 @@ object Chapter5 extends App:
 				case _ => empty
 
 		@annotation.tailrec
-		final def exists(p: A => Boolean): Boolean =
+		final infix def exists(p: A => Boolean): Boolean =
 			this match
 				case Cons(h, t) => p(h()) || t().exists(p)
 				case _ => false
@@ -135,7 +135,7 @@ object Chapter5 extends App:
 				case (_, Empty) => true
 				case _ => false
 
-		def startsWith2[B](that: Stream[B]): Boolean =
+		infix def startsWith2[B](that: Stream[B]): Boolean =
 			this.zipAll(that).takeWhile(_._2.isDefined).forAll(x => x._1 == x._2)
 
 		// Exercise 5.15
