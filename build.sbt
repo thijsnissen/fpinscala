@@ -1,6 +1,6 @@
-ThisBuild / name         := "fptothemax"
+ThisBuild / name         := "fpinscala"
 ThisBuild / version      := "0.1.0"
-ThisBuild / scalaVersion := "3.3.1"
+ThisBuild / scalaVersion := "3.4.0"
 
 ThisBuild / libraryDependencies ++= Seq(
 	"org.scalatest"  %% "scalatest"  % "3.2.16" % "test",
