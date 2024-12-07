@@ -1341,3 +1341,24 @@ class Test extends AnyFunSuite:
 		assertResult(expected = "<header>/home/123</header><footer>/home/123</footer>")(renderWebsite("/home")(using config))
 		assertResult(expected = 3)(genericAdder(1, 2))
 		assertResult(expected = "3")(genericAdder("1", "2"))
+
+	test("CombinationsAndPermutations"):
+		import CombinationsAndPermutations.*
+
+		val input1 = List('X', 'Y', 'Z')
+		val input2 = List(
+			List('Y', 'Y', 'Y'),
+			List('Z', 'Z', 'Z'),
+			List('X', 'X', 'X'),
+			List('X', 'Y', 'Z'),
+			List('Y', 'Z', 'Z'),
+			List('Y', 'Y', 'Z'),
+			List('X', 'Z', 'Z'),
+			List('X', 'X', 'Z'),
+			List('X', 'Y', 'Y'),
+			List('X', 'X', 'Y'),
+			List('X', 'Y', 'Z')
+		)
+
+		assertResult(makeCombinations(3, input1).toSet):
+			input2.flatMap(permutations).toSet

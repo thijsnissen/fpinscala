@@ -76,6 +76,7 @@ object Chapter10 extends App:
 				.forAll(gen ** gen ** gen):
 					case a ** b ** c =>
 						m.combine(a, m.combine(b, c)) == m.combine(m.combine(a, b), c)
+					case _ => sys.error("should not get here")
 				.tag(FailedCase.fromString("associativity"))
 
 			val identity = Prop

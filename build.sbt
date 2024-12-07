@@ -1,10 +1,10 @@
 ThisBuild / name         := "fpinscala"
 ThisBuild / version      := "0.1.0"
-ThisBuild / scalaVersion := "3.4.0"
+ThisBuild / scalaVersion := "3.5.2"
 
 ThisBuild / libraryDependencies ++= Seq(
-	"org.scalatest"  %% "scalatest"  % "3.2.16" % "test",
-	"com.lihaoyi" %% "pprint" % "0.8.1"
+	"org.scalatest"  %% "scalatest"  % "3.2.19" % "test",
+	"com.lihaoyi" %% "pprint" % "0.9.0"
 )
 
 lazy val root =
