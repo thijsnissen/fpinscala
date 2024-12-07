@@ -1360,5 +1360,6 @@ class Test extends AnyFunSuite:
 			List('X', 'Y', 'Z')
 		)
 
-		assertResult(makeCombinations(3, input1).toSet):
-			input2.flatMap(permutations).toSet
+		assertResult(makeCombinations(3, input1).toSet)(input2.flatMap(permutations).toSet)
+		assertResult(makeCombinations(3, input1).toSet)(input2.flatMap(permutations2).toSet)
+		assertResult(permutations(input1).toSet)(permutations2(input1).toSet)

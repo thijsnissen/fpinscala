@@ -38,7 +38,22 @@ object CombinationsAndPermutations extends App:
 
 	val result2 = permutations(List('Y', 'X', 'Z'))
 
+	def permutations2[A](list: List[A]): List[List[A]] =
+		if list.isEmpty then List(Nil)
+		else
+			list
+				.indices
+				.flatMap: i =>
+					val (lhs, rhs) = list.splitAt(i)
+
+					permutations2(lhs ++ rhs.tail).map(rhs.head :: _)
+				.toList
+
+	val result3 = permutations2(List('Y', 'X', 'Z'))
+
 	result1.foreach(println)
 	println("---")
 	result2.foreach(println)
+	println("---")
+	result3.foreach(println)
 
